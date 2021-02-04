@@ -127,7 +127,7 @@ class Instruction:
         if self.origin.owner != self.issuer:
             raise InvalidInstruction("Issuer is not the origin owner")
 
-        if self.num_troops > len({unit for unit in self.origin.units if isinstance(unit, Troop)}):
+        if self.num_troops > len({unit for unit in self.origin.units_of(Troop)}):
             raise InvalidInstruction("Insufficient troops in origin territory")
 
     def execute(self) -> Instruction:
