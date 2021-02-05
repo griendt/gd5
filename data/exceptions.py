@@ -10,3 +10,8 @@ class InvalidInstruction(InstructionException):
 class InstructionAlreadyExecuted(InstructionException):
     def __init__(self, *args, **kwargs):
         super().__init__("Instruction already executed", *args, **kwargs)
+
+
+class InsufficientUnitsException(Exception):
+    def __init__(self, cls: type, amount: int, *args, **kwargs):
+        super().__init__(f"Insufficient units of type {cls} to fetch {amount} of", *args, **kwargs)
