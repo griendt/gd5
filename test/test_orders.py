@@ -56,9 +56,9 @@ class InstructionsTest(unittest.TestCase):
 
         Instruction(issuer=p1, origin=t1, destination=t2, num_troops=6).execute()
 
-        self.assertEqual(p1, t2.owner)
-        self.assertEqual(4, len(t1.units_of(Troop)))
-        self.assertEqual(6, len(t2.units_of(Troop)))
+        self.assertTerritoryOwner(t2, p1)
+        self.assertTerritoryHasTroops(t1, 4)
+        self.assertTerritoryHasTroops(t2, 6)
 
     def test_distributing_to_friendly_territory_costs_no_units(self):
         p1 = Player(name=self.faker.name())
@@ -72,10 +72,27 @@ class InstructionsTest(unittest.TestCase):
 
         Instruction(issuer=p1, origin=t1, destination=t2, num_troops=5).execute()
 
-        self.assertEqual(5, len(t1.units_of(Troop)))
-        self.assertEqual(11, len(t2.units_of(Troop)))
-        self.assertEqual(p1, t1.owner)
-        self.assertEqual(p1, t2.owner)
+        self.assertTerritoryHasTroops(t1, 5)
+        self.assertTerritoryHasTroops(t2, 11)
+        self.assertTerritoryOwner(t1, p1)
+        self.assertTerritoryOwner(t2, p1)
+
+    def test_simple_successful_invasion(self):
+        p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
+        t1, t2 = Territory(owner=p1), Territory(owner=p2)
+
+        for i in range(8):
+            Troop(territory=t1)
+
+        for i in range(5):
+            Troop(territory=t2)
+
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=7).execute()
+
+        self.assertTerritoryHasTroops(t1, 1)
+        self.assertTerritoryHasTroops(t2, 2)
+        self.assertTerritoryOwner(t1, p1)
+        self.assertTerritoryOwner(t2, p1)
 
 
 if __name__ == "__main__":
