@@ -9,6 +9,12 @@ from data.world import Instruction, Territory, Player, Troop
 class InstructionsTest(unittest.TestCase):
     faker = Faker()
 
+    def assertTerritoryHasTroops(self, territory: Territory, num_troops: int) -> None:
+        self.assertEqual(num_troops, len(territory.units_of(Troop)))
+
+    def assertTerritoryOwner(self, territory: Territory, player: Player) -> None:
+        self.assertEqual(player, territory.owner)
+
     def test_instruction_with_other_origin_owner_is_invalid(self):
         p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
         t1, t2 = Territory(owner=p2), Territory()
