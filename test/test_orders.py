@@ -10,7 +10,7 @@ class InstructionsTest(unittest.TestCase):
     faker = Faker()
 
     def assertTerritoryHasTroops(self, territory: Territory, num_troops: int) -> None:
-        self.assertEqual(num_troops, len(territory.units_of(Troop)))
+        self.assertEqual(num_troops, len(territory.all(Troop)))
 
     def assertTerritoryOwner(self, territory: Territory, player: Player) -> None:
         self.assertEqual(player, territory.owner)
@@ -90,7 +90,7 @@ class InstructionsTest(unittest.TestCase):
         Instruction(issuer=p1, origin=t1, destination=t2, num_troops=7).execute()
 
         self.assertTerritoryHasTroops(t1, 1)
-        self.assertTerritoryHasTroops(t2, 2)
+        self.assertTerritoryHasTroops(t2, 1)
         self.assertTerritoryOwner(t1, p1)
         self.assertTerritoryOwner(t2, p1)
 
