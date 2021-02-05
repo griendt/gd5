@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 from itertools import count
-from typing import Optional, Generic, TypeVar
+from typing import Optional, Generic, TypeVar, Union
 
-from data.exceptions import InvalidInstruction, InstructionAlreadyExecuted
+from data.exceptions import InvalidInstruction, InstructionAlreadyExecuted, InsufficientUnitsException
 
 T = TypeVar('T')
 
@@ -57,9 +58,37 @@ class Territory:
         self.owner = owner
         return self
 
-    def units_of(self, cls: T) -> set[T]:
+    def all(self, cls: T) -> set[T]:
         """Convenience method."""
         return {unit for unit in self.units if isinstance(unit, cls)}
+
+    def take_unit(self, cls: T, amount: int = 1) -> T | set[T]:
+        """Select one or more random items from a type of unit."""
+
+        if amount > len(self.all(cls)):
+            raise InsufficientUnitsException(cls, amount)
+
+        sample, amount_taken = set(), 0
+        for unit in self.all(cls):
+            # If only one item is requested, simply return that item
+            # rather than building a set of items.
+            if amount == 1:
+                return unit
+
+            sample.add(unit)
+            amount_taken += 1
+
+            if amount_taken == amount:
+                break
+
+        return sample
+
+    def move_all(self, cls: T, destination: Territory) -> None:
+        """Convenience method. Move all units of the
+        given type to the destination territory."""
+        for unit in self.all(cls):
+            assert isinstance(unit, Unit)
+            unit.move(destination)
 
     def is_neutral(self) -> bool:
         """Whether the territory is considered neutral."""
@@ -90,6 +119,11 @@ class Unit:
         # to contain this unit.
         self.territory = territory
         territory.units.add(self)
+
+    def remove(self):
+        """Remove this unit (i.e. it is slain)."""
+        if self.territory:
+            self.territory.units.remove(self)
 
     def render(self):
         raise NotImplementedError
@@ -127,7 +161,7 @@ class Instruction:
         if self.origin.owner != self.issuer:
             raise InvalidInstruction("Issuer is not the origin owner")
 
-        if self.num_troops > len({unit for unit in self.origin.units_of(Troop)}):
+        if self.num_troops > len({unit for unit in self.origin.all(Troop)}):
             raise InvalidInstruction("Insufficient troops in origin territory")
 
     def execute(self) -> Instruction:
@@ -147,10 +181,44 @@ class Instruction:
 
             while self.num_troops > num_troops_moved:
                 # Note: we regard each troop here as being identical.
-                for unit in self.origin.units_of(Troop):
-                    unit.move(self.destination)
-                    num_troops_moved += 1
+                self.origin.take_unit(Troop).move(self.destination)
+                num_troops_moved += 1
+        else:
+            """We are dealing with an invasion here: the target territory already belongs
+            to another player. We will have to resolve the battle and units will be lost."""
+
+            # First, apply the 1-Troop penalty to the attacker.
+            # This ensures that if, say, 3 Troops attack 2, the result is neutralization.
+            self.origin.take_unit(Troop).remove()
+            num_troops_moved = 1
+
+            while self.num_troops > num_troops_moved:
+                # Remove a troop from both sides in an equal ratio, as long as this is possible
+                # and we still have troops to move
+
+                if self.origin.all(Troop) and self.destination.all(Troop):
+                    self.origin.take_unit(Troop).remove()
+                    self.destination.take_unit(Troop).remove()
+                else:
+                    # Either army is completely exhausted.
+                    # The battle ends.
                     break
+
+                num_troops_moved += 1
+
+            # If the attacker has Troops remaining, move them to the target territory.
+            self.destination.set_owner(self.origin.owner)
+
+            # Move the remaining Troops to the destination.
+            remainder = self.origin.take_unit(Troop, self.num_troops - num_troops_moved)
+
+            if isinstance(remainder, Troop):
+                remainder.move(self.destination)
+                num_troops_moved += 1
+            else:
+                for troop in remainder:
+                    troop.move(self.destination)
+                    num_troops_moved += 1
 
         self.is_executed = True
         return self
