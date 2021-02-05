@@ -2,6 +2,7 @@ import unittest
 
 from faker import Faker
 
+from data.exceptions import InsufficientUnitsException
 from data.world import World, Territory, LandBiome, Player, Troop, Unit, General, Cavalry
 
 
@@ -74,6 +75,23 @@ class WorldTest(unittest.TestCase):
 
         self.assertEqual(troop.id + 1, cavalry.id)
         self.assertEqual(troop.id + 2, troop_2.id)
+
+    def test_territory_take_a_random_unit(self):
+        territory = Territory()
+        troop = Troop(territory=territory)
+        cavalry = Cavalry(territory=territory)
+
+        self.assertEqual(troop, territory.take_unit(Troop))
+        self.assertEqual(cavalry, territory.take_unit(Cavalry))
+
+    def test_taking_more_units_than_present_is_rejected(self):
+        territory = Territory()
+
+        for i in range(10):
+            Troop(territory=territory)
+
+        with self.assertRaises(InsufficientUnitsException):
+            territory.take_unit(Troop, 12)
 
 
 if __name__ == "__main__":
