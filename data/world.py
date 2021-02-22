@@ -65,6 +65,12 @@ class Territory:
     def take_unit(self, cls: T, amount: int = 1) -> T | set[T]:
         """Select one or more random items from a type of unit."""
 
+        if amount < 0:
+            raise ValueError("A non-negative amount of units must be taken")
+
+        if amount == 0:
+            return set()
+
         if amount > len(self.all(cls)):
             raise InsufficientUnitsException(cls, amount)
 
