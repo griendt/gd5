@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from itertools import count
 from typing import Optional, TypeVar
 
-from exceptions import InvalidInstruction, InstructionAlreadyExecuted, InsufficientUnitsException, \
+from excepts import InvalidInstruction, InstructionAlreadyExecuted, InsufficientUnitsException, \
     InstructionNotInInstructionSet
 
 T = TypeVar('T')
