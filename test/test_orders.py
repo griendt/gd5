@@ -143,6 +143,38 @@ class InstructionsTest(unittest.TestCase):
         # In executing the first order, the second order involved in the skirmish was also executed automatically.
         self.assertTrue(i2.is_executed)
 
+    def test_multiple_origin_skirmish_with_different_players(self):
+        p1, p2, p3 = Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name())
+        t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
+        iset = InstructionSet()
+
+        i1 = Instruction(issuer=p1, origin=t1, destination=t3, num_troops=5, instruction_set=iset)
+        i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=2, instruction_set=iset)
+
+        for i in range(6):
+            Troop(territory=t1)
+
+        for i in range(4):
+            Troop(territory=t2)
+
+        for i in range(10):
+            Troop(territory=t3)
+
+        i1.execute()
+
+        # There is a skirmish between Player 1 and Player 2, even though Player 3 is the one whose territory
+        # is being attacked. Both troops from player 2 that were sent should be destroyed by Player 1, and
+        # the remainder of Player 1's troops should trigger an invasion to Player 3's territory.
+        self.assertTerritoryHasTroops(t1, 1)
+        self.assertTerritoryHasTroops(t2, 2)
+
+        # Player 1 should have 3 of its 5 units remaining that go onward to invade.
+        # This means two of Player 3's troops are expected to be slain.
+        self.assertTerritoryHasTroops(t3, 8)
+
+        # In executing the first order, the second order involved in the skirmish was also executed automatically.
+        self.assertTrue(i2.is_executed)
+
 
 if __name__ == "__main__":
     unittest.main()
