@@ -249,6 +249,49 @@ class Instruction:
             # turn the destination neutral.
             self.destination.owner = None
 
+    def resolve_skirmish(self, skirmishes: list[Instruction]) -> None:
+        """This is a skirmish with another Instruction. Right now we're assuming there can
+        be only one such skirmish, but we will have to support the more complex scenarios as well.
+        We will want to implement virtual territories, that are the combination of armies from origin
+        territories. But right now we are focussing on simple skirmishes only."""
+        skirmish: Instruction = skirmishes[0]
+
+        num_troops_moved = 0
+        num_skirmish_troops_moved = 0
+        # We have repeated code here, compared to the invasion. We should wrap this in a convenient method.
+        while self.num_troops > num_troops_moved:
+            if self.origin.all(Troop) and skirmish.origin.all(Troop):
+                self.origin.take_unit(Troop).remove()
+                skirmish.origin.take_unit(Troop).remove()
+                num_skirmish_troops_moved += 1
+            else:
+                break
+
+            num_troops_moved += 1
+
+        if num_skirmish_troops_moved == skirmish.num_troops:
+            # The opponent's instruction has been resolved completely, as all units in it have already
+            # moved during the resolve of this skirmish. So, set the instruction to executed.
+            skirmish.is_executed = True
+
+        # If the origin has troops remaining, the remainder of the units move onwards to the
+        # target territory. We know that this must be an invasion and not an expansion, since
+        # lands may not be left empty.
+        remainder_after_skirmish = self.origin.take_unit(Troop, self.num_troops - num_troops_moved)
+        if remainder_after_skirmish:
+            self.resolve_invasion(num_troops_moved)
+
+    def resolve_expansion(self) -> None:
+        """The destination is neutral or belongs to the same player. We will
+        simply move the units from the origin to the destination and set the ownership."""
+        num_troops_moved = 0
+        self.destination.set_owner(self.origin.owner)
+
+        while self.num_troops > num_troops_moved:
+            # Note: we regard each troop here as being identical.
+            self.origin.take_unit(Troop).move(self.destination)
+            num_troops_moved += 1
+
     def execute(self) -> Instruction:
         """Execute the order. This will alter the territories it belongs to."""
         self.assert_is_valid()
@@ -259,51 +302,14 @@ class Instruction:
         if not self.instruction_set:
             raise InstructionNotInInstructionSet()
 
-        num_troops_moved = 0
-
         if self.destination.is_neutral() or self.origin.owner == self.destination.owner:
             """The destination is neutral or belongs to the same player. We will
             simply move the units from the origin to the destination and set the ownership."""
-
-            self.destination.set_owner(self.origin.owner)
-
-            while self.num_troops > num_troops_moved:
-                # Note: we regard each troop here as being identical.
-                self.origin.take_unit(Troop).move(self.destination)
-                num_troops_moved += 1
+            self.resolve_expansion()
         elif skirmishes := self.instruction_set.find_skirmishes(self):
-            """This is a skirmish with another Instruction. Right now we're assuming there can
-            be only one such skirmish, but we will have to support the more complex scenarios as well.
-            We will want to implement virtual territories, that are the combination of armies from origin
-            territories. But right now we are focussing on simple skirmishes only."""
-            skirmish: Instruction = skirmishes[0]
-
-            num_skirmish_troops_moved = 0
-            # We have repeated code here, compared to the invasion. We should wrap this in a convenient method.
-            while self.num_troops > num_troops_moved:
-                if self.origin.all(Troop) and skirmish.origin.all(Troop):
-                    self.origin.take_unit(Troop).remove()
-                    skirmish.origin.take_unit(Troop).remove()
-                    num_skirmish_troops_moved += 1
-                else:
-                    break
-
-                num_troops_moved += 1
-
-            if num_skirmish_troops_moved == skirmish.num_troops:
-                # The opponent's instruction has been resolved completely, as all units in it have already
-                # moved during the resolve of this skirmish. So, set the instruction to executed.
-                skirmish.is_executed = True
-
-            # If the origin has troops remaining, the remainder of the units move onwards to the
-            # target territory. We know that this must be an invasion and not an expansion, since
-            # lands may not be left empty.
-            remainder_after_skirmish = self.origin.take_unit(Troop, self.num_troops - num_troops_moved)
-            if remainder_after_skirmish:
-                self.resolve_invasion(num_troops_moved)
-
-            self.is_executed = True
-            return self
+            """There are other Instructions that conflict with this one. This leads to skirmishes.
+            We will have to resolve those skirmishes first."""
+            self.resolve_skirmish(skirmishes)
         else:
             """We are dealing with an invasion here: the target territory already belongs
             to another player. We will have to resolve the battle and units will be lost."""
