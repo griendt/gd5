@@ -258,7 +258,6 @@ class Instruction:
 
         num_troops_moved = 0
         num_skirmish_troops_moved = 0
-        # We have repeated code here, compared to the invasion. We should wrap this in a convenient method.
         while self.num_troops > num_troops_moved:
             if self.origin.all(Troop) and skirmish.origin.all(Troop):
                 self.origin.take_unit(Troop).remove()
