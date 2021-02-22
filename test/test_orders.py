@@ -106,7 +106,7 @@ class InstructionsTest(unittest.TestCase):
         t1, t2 = Territory(owner=p1), Territory(owner=p2)
         iset = InstructionSet()
 
-        for i in range(6):
+        for i in range(5):
             Troop(territory=t1)
 
         for i in range(3):
@@ -133,8 +133,6 @@ class InstructionsTest(unittest.TestCase):
             Troop(territory=t2)
 
         i1.execute()
-
-        print(t1, t2)
 
         # All units involved in the skirmish were lost.
         self.assertTerritoryHasTroops(t1, 3)
