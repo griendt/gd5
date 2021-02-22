@@ -101,6 +101,50 @@ class InstructionsTest(unittest.TestCase):
         self.assertTerritoryOwner(t1, p1)
         self.assertTerritoryOwner(t2, p1)
 
+    def test_invasion_can_render_the_target_neutral(self):
+        p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
+        t1, t2 = Territory(owner=p1), Territory(owner=p2)
+        iset = InstructionSet()
+
+        for i in range(6):
+            Troop(territory=t1)
+
+        for i in range(3):
+            Troop(territory=t2)
+
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset).execute()
+
+        self.assertTerritoryHasTroops(t1, 1)
+        self.assertTerritoryHasTroops(t2, 0)
+        self.assertTerritoryOwner(t1, p1)
+        self.assertTerritoryNeutral(t2)
+
+    def test_simple_skirmish_mutual_invasion(self):
+        p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
+        t1, t2 = Territory(owner=p1), Territory(owner=p2)
+        iset = InstructionSet()
+        i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=3, instruction_set=iset)
+        i2 = Instruction(issuer=p2, origin=t2, destination=t1, num_troops=3, instruction_set=iset)
+
+        for i in range(6):
+            Troop(territory=t1)
+
+        for i in range(4):
+            Troop(territory=t2)
+
+        i1.execute()
+
+        print(t1, t2)
+
+        # All units involved in the skirmish were lost.
+        self.assertTerritoryHasTroops(t1, 3)
+        self.assertTerritoryHasTroops(t2, 1)
+        self.assertTerritoryOwner(t1, p1)
+        self.assertTerritoryOwner(t2, p2)
+
+        # In executing the first order, the second order involved in the skirmish was also executed automatically.
+        self.assertTrue(i2.is_executed)
+
 
 if __name__ == "__main__":
     unittest.main()
