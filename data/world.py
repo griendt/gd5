@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass, field
 from itertools import count
-from typing import Optional, Generic, TypeVar, Union
+from typing import Optional, TypeVar
 
-from data.exceptions import InvalidInstruction, InstructionAlreadyExecuted, InsufficientUnitsException
+from data.exceptions import InvalidInstruction, InstructionAlreadyExecuted, InsufficientUnitsException, \
+    InstructionNotInInstructionSet
 
 T = TypeVar('T')
 
@@ -209,6 +209,9 @@ class Instruction:
         if self.is_executed:
             raise InstructionAlreadyExecuted()
 
+        if not self.instruction_set:
+            raise InstructionNotInInstructionSet()
+
         num_troops_moved = 0
 
         if self.destination.is_neutral() or self.origin.owner == self.destination.owner:
@@ -221,6 +224,39 @@ class Instruction:
                 # Note: we regard each troop here as being identical.
                 self.origin.take_unit(Troop).move(self.destination)
                 num_troops_moved += 1
+        elif skirmishes := self.instruction_set.find_skirmishes(self):
+            """This is a skirmish with another Instruction. Right now we're assuming there can
+            be only one such skirmish, but we will have to support the more complex scenarios as well.
+            We will want to implement virtual territories, that are the combination of armies from origin
+            territories. But right now we are focussing on simple skirmishes only."""
+            skirmish = skirmishes[0]
+
+            # We have repeated code here, compared to the invasion. We should wrap this in a convenient method.
+            while self.num_troops > num_troops_moved:
+                if self.origin.all(Troop) and self.destination.all(Troop):
+                    self.origin.take_unit(Troop).remove()
+                    self.destination.take_unit(Troop).remove()
+                else:
+                    break
+
+                num_troops_moved += 1
+
+            # If the origin has troops remaining, move them to the target territory
+            # and set the owner to the winner.
+            remainder = self.origin.take_unit(Troop, self.num_troops - num_troops_moved)
+            if remainder:
+                self.destination.set_owner(self.origin.owner)
+
+                if isinstance(remainder, Troop):
+                    remainder.move(self.destination)
+                    num_troops_moved += 1
+                else:
+                    for troop in remainder:
+                        troop.move(self.destination)
+                        num_troops_moved += 1
+
+            self.is_executed = True
+            return self
         else:
             """We are dealing with an invasion here: the target territory already belongs
             to another player. We will have to resolve the battle and units will be lost."""
