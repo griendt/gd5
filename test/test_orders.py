@@ -175,6 +175,46 @@ class InstructionsTest(unittest.TestCase):
         # In executing the first order, the second order involved in the skirmish was also executed automatically.
         self.assertTrue(i2.is_executed)
 
+    def test_triple_skirmish_with_three_players(self):
+        p1, p2, p3, p4 = Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name())
+        t1, t2, t3, t4 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3), Territory(owner=p4)
+        iset = InstructionSet()
+
+        i1 = Instruction(issuer=p1, origin=t1, destination=t4, num_troops=5, instruction_set=iset)
+        i2 = Instruction(issuer=p2, origin=t2, destination=t4, num_troops=2, instruction_set=iset)
+        i3 = Instruction(issuer=p3, origin=t3, destination=t4, num_troops=8, instruction_set=iset)
+
+        for i in range(6):
+            Troop(territory=t1)
+
+        for i in range(3):
+            Troop(territory=t2)
+
+        for i in range(9):
+            Troop(territory=t3)
+
+        for i in range(1):
+            Troop(territory=t4)
+
+        # FIXME: This test passes because we execute the instruction with the biggest army set.
+        #   This should not be relevant.
+        i3.execute()
+
+        # All attackers have sent the maximum number of troops they had available.
+        self.assertTerritoryHasTroops(t1, 1)
+        self.assertTerritoryHasTroops(t2, 1)
+        self.assertTerritoryHasTroops(t3, 1)
+
+        # Notice that in the skirmishes, all troops are to be vanquished save 3 of Player 3's troops.
+        # These 3 troops then go on to invade the single troop in t4 and take over.
+        self.assertTerritoryHasTroops(t4, 1)
+        self.assertTerritoryOwner(t4, p3)
+
+        # In resolving the skirmishes, all orders are finalized.
+        self.assertTrue(i1.is_executed)
+        self.assertTrue(i2.is_executed)
+        self.assertTrue(i3.is_executed)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -291,7 +291,8 @@ class Instruction:
         # that party (or parties) has run out of troops. The skirmish may continue with fewer
         # parties involved, but that can be its own separate resolve.
         min_troops_to_move_among_skirmishes = min(
-            map(lambda instruction: instruction.num_troops - instruction.num_troops_moved, skirmishes)
+            list(map(lambda instruction: instruction.num_troops - instruction.num_troops_moved, skirmishes)) +
+            [self.num_troops - self.num_troops_moved]
         )
 
         for i in range(min_troops_to_move_among_skirmishes):
