@@ -93,6 +93,26 @@ class WorldTest(unittest.TestCase):
         with self.assertRaises(InsufficientUnitsException):
             territory.take_unit(Troop, 12)
 
+    def test_taking_zero_units_is_permitted(self):
+        territory = Territory()
+
+        for i in range(10):
+            Troop(territory=territory)
+
+        self.assertEqual(set(), territory.take_unit(Troop, 0))
+
+        empty_territory = Territory()
+        self.assertEqual(set(), empty_territory.take_unit(Troop, 0))
+
+    def test_taking_negative_units_is_rejected(self):
+        territory = Territory()
+
+        for i in range(10):
+            Troop(territory=territory)
+
+        with self.assertRaises(ValueError):
+            territory.take_unit(Troop, -1)
+
 
 if __name__ == "__main__":
     unittest.main()
