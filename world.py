@@ -68,7 +68,7 @@ class Territory:
         self.owner = owner
         return self
 
-    def all(self, cls: T) -> set[T]:
+    def all(self, cls: type) -> set[T]:
         """Convenience method."""
         return {unit for unit in self.units if isinstance(unit, cls)}
 
