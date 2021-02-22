@@ -15,6 +15,9 @@ class InstructionsTest(unittest.TestCase):
     def assertTerritoryOwner(self, territory: Territory, player: Player) -> None:
         self.assertEqual(player, territory.owner)
 
+    def assertTerritoryNeutral(self, territory: Territory) -> None:
+        self.assertIsNone(territory.owner)
+
     def test_instruction_with_other_origin_owner_is_invalid(self):
         p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
         t1, t2 = Territory(owner=p2), Territory()
