@@ -201,6 +201,7 @@ class Instruction:
     destination: Territory
     instruction_set: InstructionSet = None
     num_troops: int = 0
+    num_troops_moved: int = 0
     is_executed: bool = False
 
     def __post_init__(self):
@@ -218,7 +219,7 @@ class Instruction:
         if self.num_troops > len({unit for unit in self.origin.all(Troop)}):
             raise InvalidInstruction("Insufficient troops in origin territory")
 
-    def resolve_invasion(self, num_troops_moved: int = 0) -> None:
+    def resolve_invasion(self) -> None:
         """When the Instruction has been marked to be an invasion, this function resolves it.
         By default we will assume no troops have yet been moved, but this may be altered by the
         *num_troops_moved* parameter. This is useful in case of skirmishes that wind up having
@@ -226,9 +227,9 @@ class Instruction:
 
         # Apply the 1-Troop penalty to the attacker.
         self.origin.take_unit(Troop).remove()
-        num_troops_moved += 1
+        self.num_troops_moved += 1
 
-        while self.num_troops > num_troops_moved:
+        while self.num_troops > self.num_troops_moved:
             # Remove a troop from both sides in an equal ratio, as long as this is possible
             # and we still have troops to move.
             if self.origin.all(Troop) and self.destination.all(Troop):
@@ -239,67 +240,94 @@ class Instruction:
                 # The battle ends.
                 break
 
-            num_troops_moved += 1
+            self.num_troops_moved += 1
 
         # Determine whether the attacker has units left. If so, move them to the target
         # territory and set the attacker as the new owner of the target.
-        if remainder := self.origin.take_unit(Troop, self.num_troops - num_troops_moved):
+        if remainder := self.origin.take_unit(Troop, self.num_troops - self.num_troops_moved):
             # If the attacker has Troops remaining, move them to the target territory.
             self.destination.set_owner(self.origin.owner)
 
             if isinstance(remainder, Troop):
                 remainder.move(self.destination)
-                num_troops_moved += 1
+                self.num_troops_moved += 1
             else:
                 for troop in remainder:
                     troop.move(self.destination)
-                    num_troops_moved += 1
+                    self.num_troops_moved += 1
         elif self.destination.is_empty():
             # The destination has been rendered empty with this invasion. This will
             # turn the destination neutral.
             self.destination.owner = None
 
     def resolve_skirmish(self, skirmishes: list[Instruction]) -> None:
-        """This is a skirmish with another Instruction. Right now we're assuming there can
-        be only one such skirmish, but we will have to support the more complex scenarios as well.
-        We will want to implement virtual territories, that are the combination of armies from origin
-        territories. But right now we are focussing on simple skirmishes only."""
-        skirmish: Instruction = skirmishes[0]
+        """This is a skirmish with other Instructions. Right now we're assuming each Instruction
+        belongs to a different player, and hence they can be treated as individual armies. What we
+        want to establish however, is that if some instructions involved in this skirmish belong to
+        the same player, we will create a "virtual" territory so we can consider the Instructions
+        as being one. However, that is not yet implemented."""
 
-        num_troops_moved = 0
-        num_skirmish_troops_moved = 0
-        while self.num_troops > num_troops_moved:
-            if self.origin.all(Troop) and skirmish.origin.all(Troop):
-                self.origin.take_unit(Troop).remove()
+        issuers = {instruction.issuer for instruction in skirmishes}
+        issuers.add(self.issuer)
+        if len(issuers) < len(skirmishes) + 1:
+            # There are less issuers than total Instructions involved.
+            # By the pigeonhole principle, at least one player has two Instructions involved.
+            # This will require virtual territories to parse correctly.
+            raise NotImplementedError("Skirmish from same player in multiple origins is not implemented")
+
+        # First, we will check which party has the least amount of troops in this skirmish.
+        # We can then subtract troops from all skirmishes up until this point, after which
+        # that party (or parties) has run out of troops. The skirmish may continue with fewer
+        # parties involved, but that can be its own separate resolve.
+        min_troops_to_move_among_skirmishes = min(
+            map(lambda instruction: instruction.num_troops - instruction.num_troops_moved, skirmishes)
+        )
+
+        for i in range(min_troops_to_move_among_skirmishes):
+            # Subtracrt a troop.
+            self.origin.take_unit(Troop).remove()
+            self.num_troops_moved += 1
+
+            # Subtract a troop from all involved parties.
+            for skirmish in skirmishes:
                 skirmish.origin.take_unit(Troop).remove()
-                num_skirmish_troops_moved += 1
-            else:
-                break
+                skirmish.num_troops_moved += 1
 
-            num_troops_moved += 1
+        # At least one skirmish has now been completed. Mark those instructions as executed.
+        for skirmish in skirmishes:
+            if skirmish.num_troops_moved == skirmish.num_troops:
+                skirmish.is_executed = True
 
-        if num_skirmish_troops_moved == skirmish.num_troops:
-            # The opponent's instruction has been resolved completely, as all units in it have already
-            # moved during the resolve of this skirmish. So, set the instruction to executed.
-            skirmish.is_executed = True
+        if self.num_troops_moved == self.num_troops:
+            # This instruction is finished. There may be remaining skirmishes, but they will
+            # be resolved when their contents are being evaluated in their own turn, so there
+            # is no need for a recursive call.
+            return
 
-        # If the origin has troops remaining, the remainder of the units move onwards to the
-        # target territory. We know that this must be an invasion and not an expansion, since
-        # lands may not be left empty.
-        remainder_after_skirmish = self.origin.take_unit(Troop, self.num_troops - num_troops_moved)
+        # We may continue fighting! We have defeated at least one opponent, but there may be some left.
+        # We can resolve the remaining skirmishes through a recursive call.
+        if remaining_skirmishes := [skirmish for skirmish in skirmishes if not skirmish.is_executed]:
+            self.resolve_skirmish(remaining_skirmishes)
+
+        # If we reach here, we have defeated all opponent skirmishes.
+        # If the origin has troops remaining, the remainder of the units
+        # move onwards to the target territory.
+        remainder_after_skirmish = self.origin.take_unit(Troop, self.num_troops - self.num_troops_moved)
         if remainder_after_skirmish:
-            self.resolve_invasion(num_troops_moved)
+            if self.destination.is_neutral():
+                self.resolve_expansion()
+            else:
+                self.resolve_invasion()
 
     def resolve_expansion(self) -> None:
         """The destination is neutral or belongs to the same player. We will
         simply move the units from the origin to the destination and set the ownership."""
-        num_troops_moved = 0
         self.destination.set_owner(self.origin.owner)
 
-        while self.num_troops > num_troops_moved:
+        while self.num_troops > self.num_troops_moved:
             # Note: we regard each troop here as being identical.
             self.origin.take_unit(Troop).move(self.destination)
-            num_troops_moved += 1
+            self.num_troops_moved += 1
 
     def execute(self) -> Instruction:
         """Execute the order. This will alter the territories it belongs to."""
