@@ -40,15 +40,15 @@ class WorldTest(unittest.TestCase):
         t = Territory()
         self.assertTrue(t.is_neutral())
 
-    def test_a_territory_with_units_is_not_neutral(self):
-        """If a territory contains units, it is not neutral.
+    def test_a_territory_with_units_is_not_empty(self):
+        """If a territory contains units, it is not empty.
         Note that this is different from that territory having an owner.
         The question that remains is whether a unit in a neutral land
         can have no owner -- not even Barbarian."""
         t = Territory()
         troop = Troop(territory=t)
 
-        self.assertFalse(t.is_neutral())
+        self.assertFalse(t.is_empty())
 
     def test_player_initialization_requires_only_name(self):
         """A player can be initialized only by name; other fields should have default values."""
