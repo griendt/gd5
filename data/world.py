@@ -235,31 +235,65 @@ class Instruction:
             be only one such skirmish, but we will have to support the more complex scenarios as well.
             We will want to implement virtual territories, that are the combination of armies from origin
             territories. But right now we are focussing on simple skirmishes only."""
-            skirmish = skirmishes[0]
+            skirmish: Instruction = skirmishes[0]
 
+            num_skirmish_troops_moved = 0
             # We have repeated code here, compared to the invasion. We should wrap this in a convenient method.
             while self.num_troops > num_troops_moved:
-                if self.origin.all(Troop) and self.destination.all(Troop):
+                if self.origin.all(Troop) and skirmish.origin.all(Troop):
                     self.origin.take_unit(Troop).remove()
-                    self.destination.take_unit(Troop).remove()
+                    skirmish.origin.take_unit(Troop).remove()
+                    num_skirmish_troops_moved += 1
                 else:
                     break
 
                 num_troops_moved += 1
 
-            # If the origin has troops remaining, move them to the target territory
-            # and set the owner to the winner.
-            remainder = self.origin.take_unit(Troop, self.num_troops - num_troops_moved)
-            if remainder:
-                self.destination.set_owner(self.origin.owner)
+            if num_skirmish_troops_moved == skirmish.num_troops:
+                # The opponent's instruction has been resolved completely, as all units in it have already
+                # moved during the resolve of this skirmish. So, set the instruction to executed.
+                skirmish.is_executed = True
 
-                if isinstance(remainder, Troop):
-                    remainder.move(self.destination)
+            # If the origin has troops remaining, the remainder of the units move onwards to the
+            # target territory. We know that this must be an invasion and not an expansion, since
+            # lands may not be left empty.
+            remainder_after_skirmish = self.origin.take_unit(Troop, self.num_troops - num_troops_moved)
+            if remainder_after_skirmish:
+                # Apply the 1-Troop penalty to the attacker.
+                self.origin.take_unit(Troop).remove()
+                num_troops_moved += 1
+
+                while self.num_troops > num_troops_moved:
+                    # Remove a troop from both sides in an equal ratio, as long as this is possible
+                    # and we still have troops to move
+
+                    if self.origin.all(Troop) and self.destination.all(Troop):
+                        self.origin.take_unit(Troop).remove()
+                        self.destination.take_unit(Troop).remove()
+                    else:
+                        # Either army is completely exhausted.
+                        # The battle ends.
+                        break
+
                     num_troops_moved += 1
-                else:
-                    for troop in remainder:
-                        troop.move(self.destination)
+
+                # Determine whether the attacker has units left. If so, move them to the target
+                # territory and set the attacker as the new owner of the target.
+                if remainder := self.origin.take_unit(Troop, self.num_troops - num_troops_moved):
+                    # If the attacker has Troops remaining, move them to the target territory.
+                    self.destination.set_owner(self.origin.owner)
+
+                    if isinstance(remainder, Troop):
+                        remainder.move(self.destination)
                         num_troops_moved += 1
+                    else:
+                        for troop in remainder:
+                            troop.move(self.destination)
+                            num_troops_moved += 1
+                elif self.destination.is_empty():
+                    # The destination has been rendered empty with this invasion. This will
+                    # turn the destination neutral.
+                    self.destination.owner = None
 
             self.is_executed = True
             return self
@@ -299,6 +333,10 @@ class Instruction:
                     for troop in remainder:
                         troop.move(self.destination)
                         num_troops_moved += 1
+            elif self.destination.is_empty():
+                # The destination has been rendered empty with this invasion. This will
+                # turn the destination neutral.
+                self.destination.owner = None
 
         self.is_executed = True
         return self
