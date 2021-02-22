@@ -96,9 +96,15 @@ class Territory:
             assert isinstance(unit, Unit)
             unit.move(destination)
 
-    def is_neutral(self) -> bool:
-        """Whether the territory is considered neutral."""
+    def is_empty(self) -> bool:
+        """Whether the territory is considered empty (devoid of units)."""
         return not self.units
+
+    def is_neutral(self) -> bool:
+        """Whether this territory is considered neutral (not belonging to any player).
+        Note that this is not necessarily the same as it being empty, as the territory might contain
+        a construct that does not require the availability of any units."""
+        return not self.owner
 
     def __hash__(self):
         return self.id
