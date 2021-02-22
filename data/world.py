@@ -244,19 +244,19 @@ class Instruction:
 
                 num_troops_moved += 1
 
-            # If the attacker has Troops remaining, move them to the target territory.
-            self.destination.set_owner(self.origin.owner)
+            # Determine whether the attacker has units left. If so, move them to the target
+            # territory and set the attacker as the new owner of the target.
+            if remainder := self.origin.take_unit(Troop, self.num_troops - num_troops_moved):
+                # If the attacker has Troops remaining, move them to the target territory.
+                self.destination.set_owner(self.origin.owner)
 
-            # Move the remaining Troops to the destination.
-            remainder = self.origin.take_unit(Troop, self.num_troops - num_troops_moved)
-
-            if isinstance(remainder, Troop):
-                remainder.move(self.destination)
-                num_troops_moved += 1
-            else:
-                for troop in remainder:
-                    troop.move(self.destination)
+                if isinstance(remainder, Troop):
+                    remainder.move(self.destination)
                     num_troops_moved += 1
+                else:
+                    for troop in remainder:
+                        troop.move(self.destination)
+                        num_troops_moved += 1
 
         self.is_executed = True
         return self
