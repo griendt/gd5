@@ -180,8 +180,19 @@ class InstructionSet:
         skirmishing_instructions: list[Instruction] = [
             other_instruction for other_instruction in self.instructions
             if (
-                other_instruction.origin == instruction.destination and
-                other_instruction.destination == instruction.origin
+                # An instruction cannot skirmish with itself, obviously.
+                other_instruction is not instruction and
+                (
+                    # Two different armies going to the same destination.
+                    # Note: we are not yet checking for ownership of both instructions.
+                    # We will need to do this and create virtual territories to support "joined" attacks.
+                    other_instruction.destination == instruction.destination or
+                    # Small circular skirmish where two territories attack each other
+                    (
+                        other_instruction.origin == instruction.destination and
+                        other_instruction.destination == instruction.origin
+                    )
+                )
             )]
 
         return skirmishing_instructions
