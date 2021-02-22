@@ -151,14 +151,46 @@ class General(Unit):
 
 
 @dataclass
+class InstructionSet:
+    """Instructions are to be invoked in conjunction with other instructions: they are not standalone.
+    Consider for example a skirmish: this is a combination of two or more Instructions whose result
+    is altered by each other's existence. This class orchestrates this behaviour and allows Instructions
+    to see which other Instructions are relevant for its own execution."""
+
+    instructions: list[Instruction] = field(default_factory=lambda: list())
+
+    def find_skirmishes(self, instruction: Instruction) -> list[Instruction]:
+        """Given *instruction*, look for other instructions that will cause a skirmish with it."""
+        skirmishing_instructions: list[Instruction] = [
+            other_instruction for other_instruction in self.instructions
+            if (
+                other_instruction.origin == instruction.destination and
+                other_instruction.destination == instruction.origin
+            )]
+
+        return skirmishing_instructions
+
+    def __post_init__(self):
+        """Make sure that each Instruction is registered as being in this InstructionSet."""
+        for instruction in self.instructions:
+            instruction.instruction_set = self
+
+
+@dataclass
 class Instruction:
     """A basic order is invoked by someone and concerns the movement
     of some units from an origin to a destination."""
     issuer: Player
     origin: Territory
     destination: Territory
+    instruction_set: InstructionSet = None
     num_troops: int = 0
     is_executed: bool = False
+
+    def __post_init__(self):
+        """Make sure to register this Instruction to its InstructionSet."""
+        if self.instruction_set and self not in self.instruction_set.instructions:
+            self.instruction_set.instructions.append(self)
 
     def assert_is_valid(self) -> None:
         """Do some sanity checks to determine whether this Instruction makes sense.
