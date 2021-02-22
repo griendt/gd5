@@ -6,7 +6,7 @@ from rich.panel import Panel
 from rich.table import Table
 from typing import Union
 
-from data.world import World, Territory, WaterBiome, Player
+from world import World, Territory, WaterBiome, Player
 
 nil = "[i dim]-[/i dim]"
 logger = Console()

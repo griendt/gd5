@@ -2,8 +2,8 @@ import unittest
 
 from faker import Faker
 
-from data.exceptions import InsufficientUnitsException
-from data.world import World, Territory, LandBiome, Player, Troop, Unit, General, Cavalry
+from exceptions import InsufficientUnitsException
+from world import World, Territory, LandBiome, Player, Troop, Unit, General, Cavalry
 
 
 class WorldTest(unittest.TestCase):

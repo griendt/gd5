@@ -2,8 +2,8 @@ import unittest
 
 from faker import Faker
 
-from data.exceptions import InvalidInstruction, InstructionAlreadyExecuted
-from data.world import Instruction, Territory, Player, Troop, InstructionSet
+from exceptions import InvalidInstruction, InstructionAlreadyExecuted
+from world import Instruction, Territory, Player, Troop, InstructionSet
 
 
 class InstructionsTest(unittest.TestCase):
