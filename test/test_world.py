@@ -57,6 +57,19 @@ class WorldTest(unittest.TestCase):
         self.assertEqual("", player.description)
         self.assertEqual(0, player.influence_points)
 
+    def test_player_names_cannot_be_reassigned(self):
+        """A player, once initialized, cannot change his name. This is a requirement due to
+        the fact that player hashing goes by name."""
+        player = Player(name=self.faker.name())
+
+        while True:
+            new_name = self.faker.name()
+            if player.name != new_name:
+                break
+
+        with self.assertRaises(AttributeError):
+            player.name = new_name
+
     def test_troops_cavalry_and_generals_are_units(self):
         """A troop, cavalry or general are a type of unit and should be recognized as such."""
         troop = Troop(territory=Territory())
