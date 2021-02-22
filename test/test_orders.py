@@ -3,7 +3,7 @@ import unittest
 from faker import Faker
 
 from data.exceptions import InvalidInstruction, InstructionAlreadyExecuted
-from data.world import Instruction, Territory, Player, Troop
+from data.world import Instruction, Territory, Player, Troop, InstructionSet
 
 
 class InstructionsTest(unittest.TestCase):
@@ -41,11 +41,12 @@ class InstructionsTest(unittest.TestCase):
     def test_instruction_can_be_executed_only_once(self):
         p1 = Player(name=self.faker.name())
         t1, t2 = Territory(owner=p1), Territory()
+        iset = InstructionSet()
 
         Troop(territory=t1)
         Troop(territory=t1)
 
-        order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=1).execute()
+        order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=1, instruction_set=iset).execute()
 
         with self.assertRaises(InstructionAlreadyExecuted):
             order.execute()
@@ -53,11 +54,12 @@ class InstructionsTest(unittest.TestCase):
     def test_expansion_to_an_empty_territory(self):
         p1 = Player(name=self.faker.name())
         t1, t2 = Territory(owner=p1), Territory()
+        iset = InstructionSet()
 
         for i in range(10):
             Troop(territory=t1)
 
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=6).execute()
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=6, instruction_set=iset).execute()
 
         self.assertTerritoryOwner(t2, p1)
         self.assertTerritoryHasTroops(t1, 4)
@@ -66,6 +68,7 @@ class InstructionsTest(unittest.TestCase):
     def test_distributing_to_friendly_territory_costs_no_units(self):
         p1 = Player(name=self.faker.name())
         t1, t2 = Territory(owner=p1), Territory(owner=p1)
+        iset = InstructionSet()
 
         for i in range(10):
             Troop(territory=t1)
@@ -73,7 +76,7 @@ class InstructionsTest(unittest.TestCase):
         for i in range(6):
             Troop(territory=t2)
 
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=5).execute()
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=5, instruction_set=iset).execute()
 
         self.assertTerritoryHasTroops(t1, 5)
         self.assertTerritoryHasTroops(t2, 11)
@@ -83,6 +86,7 @@ class InstructionsTest(unittest.TestCase):
     def test_simple_successful_invasion(self):
         p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
         t1, t2 = Territory(owner=p1), Territory(owner=p2)
+        iset = InstructionSet()
 
         for i in range(8):
             Troop(territory=t1)
@@ -90,7 +94,7 @@ class InstructionsTest(unittest.TestCase):
         for i in range(5):
             Troop(territory=t2)
 
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=7).execute()
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=7, instruction_set=iset).execute()
 
         self.assertTerritoryHasTroops(t1, 1)
         self.assertTerritoryHasTroops(t2, 1)
