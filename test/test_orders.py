@@ -2,7 +2,7 @@ import unittest
 
 from faker import Faker
 
-from exceptions import InvalidInstruction, InstructionAlreadyExecuted
+from excepts import InvalidInstruction, InstructionAlreadyExecuted
 from world import Instruction, Territory, Player, Troop, InstructionSet
 
 

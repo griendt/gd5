@@ -2,7 +2,7 @@ import unittest
 
 from faker import Faker
 
-from exceptions import InsufficientUnitsException
+from excepts import InsufficientUnitsException
 from world import World, Territory, LandBiome, Player, Troop, Unit, General, Cavalry
 
 
