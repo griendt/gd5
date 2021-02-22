@@ -16,6 +16,16 @@ class Player:
     description: Optional[str] = ""
     influence_points: int = 0
 
+    def __hash__(self):
+        # Names are static and hence can be used as a hash safely
+        return hash(self.name)
+
+    def __setattr__(self, key, value):
+        if key == "name" and hasattr(self, "name"):
+            raise AttributeError("Cannot re-assign player names")
+
+        object.__setattr__(self, key, value)
+
 
 @dataclass
 class World:
