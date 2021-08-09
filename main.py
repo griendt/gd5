@@ -4,12 +4,18 @@ from rich.console import ConsoleRenderable, Console
 from rich.errors import NotRenderableError
 from rich.panel import Panel
 from rich.table import Table
-from typing import Union
+from typing import Union, Iterable, TypeVar
 
 from world import World, Territory, WaterBiome, Player
 
 nil = "[i dim]-[/i dim]"
-logger = Console()
+console = Console()
+T = TypeVar('T')
+
+
+def first(iterable: Iterable[T]) -> T:
+    for item in iterable:
+        return item
 
 
 def render_struct(struct: dataclass) -> Union[str, ConsoleRenderable]:
@@ -35,7 +41,7 @@ def render_struct(struct: dataclass) -> Union[str, ConsoleRenderable]:
     except TypeError:
         # The struct is not iterable, but also not an object we know how to parse.
         try:
-            logger.log(
+            console.log(
                 f"Unknown struct of type [b blue]{type(struct).__name__}[/b blue] received, attempting auto-render")
             return struct
         except NotRenderableError:

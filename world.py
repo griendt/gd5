@@ -6,6 +6,7 @@ from typing import Optional, TypeVar
 
 from excepts import InvalidInstruction, InstructionAlreadyExecuted, InsufficientUnitsException, \
     InstructionNotInInstructionSet
+from logger import logger
 
 T = TypeVar('T')
 
@@ -181,18 +182,19 @@ class InstructionSet:
             other_instruction for other_instruction in self.instructions
             if (
                 # An instruction cannot skirmish with itself, obviously.
-                other_instruction is not instruction and
-                (
-                    # Two different armies going to the same destination.
-                    # Note: we are not yet checking for ownership of both instructions.
-                    # We will need to do this and create virtual territories to support "joined" attacks.
-                    other_instruction.destination == instruction.destination or
-                    # Small circular skirmish where two territories attack each other
+                    other_instruction is not instruction and
                     (
-                        other_instruction.origin == instruction.destination and
-                        other_instruction.destination == instruction.origin
+                            (
+                                # Two different armies, belonging to different players, going to the same destination.
+                                    other_instruction.destination == instruction.destination and
+                                    other_instruction.issuer != instruction.issuer
+                            ) or
+                            (
+                                # Small circular skirmish where two territories attack each other
+                                    other_instruction.origin == instruction.destination and
+                                    other_instruction.destination == instruction.origin
+                            )
                     )
-                )
             )]
 
         return skirmishing_instructions
@@ -220,25 +222,36 @@ class Instruction:
         if self.instruction_set and self not in self.instruction_set.instructions:
             self.instruction_set.instructions.append(self)
 
+    def repr_arrow(self) -> str:
+        return (
+            f'(id={self.origin.id}, {self.origin.owner.name}, troops={len(self.origin.all(Troop))})-[{self.num_troops - self.num_troops_moved}/{self.num_troops}]->' +
+            f'(id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})'
+        )
+
     def assert_is_valid(self) -> None:
         """Do some sanity checks to determine whether this Instruction makes sense.
         This method should be called before or during execution to prevent unwanted changes
         to the world map."""
         if self.origin.owner != self.issuer:
+            logger.error('Invalid instruction: issuer is not the origin owner')
             raise InvalidInstruction("Issuer is not the origin owner")
 
         if self.num_troops > len({unit for unit in self.origin.all(Troop)}):
+            logger.error('Invalid instruction: insufficient troops in origin territory')
             raise InvalidInstruction("Insufficient troops in origin territory")
+
+        logger.debug('Instruction is valid')
 
     def resolve_invasion(self) -> None:
         """When the Instruction has been marked to be an invasion, this function resolves it.
         By default we will assume no troops have yet been moved, but this may be altered by the
         *num_troops_moved* parameter. This is useful in case of skirmishes that wind up having
         a section that is to be parsed as an invasion."""
-
+        logger.debug(f'Resolving invasion: {self.repr_arrow()}')
         # Apply the 1-Troop penalty to the attacker.
         self.origin.take_unit(Troop).remove()
         self.num_troops_moved += 1
+        logger.debug('Applied 1 troop penalty to the invader')
 
         while self.num_troops > self.num_troops_moved:
             # Remove a troop from both sides in an equal ratio, as long as this is possible
@@ -249,6 +262,7 @@ class Instruction:
             else:
                 # Either army is completely exhausted.
                 # The battle ends.
+                logger.debug(f'Either army is completely exhausted; the battle ends after {self.num_troops_moved} of {self.num_troops} invaders have been killed')
                 break
 
             self.num_troops_moved += 1
@@ -273,18 +287,12 @@ class Instruction:
 
     def resolve_skirmish(self, skirmishes: list[Instruction]) -> None:
         """This is a skirmish with other Instructions. Right now we're assuming each Instruction
-        belongs to a different player, and hence they can be treated as individual armies. What we
-        want to establish however, is that if some instructions involved in this skirmish belong to
-        the same player, we will create a "virtual" territory so we can consider the Instructions
-        as being one. However, that is not yet implemented."""
-
+        belongs to a different player, and hence they can be treated as individual armies. Note that two
+        Instructions with the same destination can belong to the same player and they will be treated as
+        two separate armies; however, those two armies do not skirmish."""
+        logger.debug(f'{self.repr_arrow()} has skirmishes with: ' + ' and '.join([skirmish.repr_arrow() for skirmish in skirmishes]))
         issuers = {instruction.issuer for instruction in skirmishes}
         issuers.add(self.issuer)
-        if len(issuers) < len(skirmishes) + 1:
-            # There are less issuers than total Instructions involved.
-            # By the pigeonhole principle, at least one player has two Instructions involved.
-            # This will require virtual territories to parse correctly.
-            raise NotImplementedError("Skirmish from same player in multiple origins is not implemented")
 
         # First, we will check which party has the least amount of troops in this skirmish.
         # We can then subtract troops from all skirmishes up until this point, after which
@@ -294,9 +302,10 @@ class Instruction:
             list(map(lambda instruction: instruction.num_troops - instruction.num_troops_moved, skirmishes)) +
             [self.num_troops - self.num_troops_moved]
         )
+        logger.debug(f'Removing {min_troops_to_move_among_skirmishes} troops from all skirmishing territories')
 
         for i in range(min_troops_to_move_among_skirmishes):
-            # Subtracrt a troop.
+            # Subtract a troop.
             self.origin.take_unit(Troop).remove()
             self.num_troops_moved += 1
 
@@ -319,14 +328,16 @@ class Instruction:
         # We may continue fighting! We have defeated at least one opponent, but there may be some left.
         # We can resolve the remaining skirmishes through a recursive call.
         if remaining_skirmishes := [skirmish for skirmish in skirmishes if not skirmish.is_executed]:
+            logger.debug('There are remaining skirmishes which we will now resolve')
             self.resolve_skirmish(remaining_skirmishes)
 
         # If we reach here, we have defeated all opponent skirmishes.
         # If the origin has troops remaining, the remainder of the units
         # move onwards to the target territory.
-        remainder_after_skirmish = self.origin.take_unit(Troop, self.num_troops - self.num_troops_moved)
-        if remainder_after_skirmish:
+        if self.origin.take_unit(Troop, self.num_troops - self.num_troops_moved):
+            logger.debug('Skirmish has been resolved; issuer has troops remaining')
             if self.destination.is_neutral():
+                logger.debug('Destination was rendered neutral by the skirmish')
                 self.resolve_expansion()
             else:
                 self.resolve_invasion()
@@ -334,6 +345,7 @@ class Instruction:
     def resolve_expansion(self) -> None:
         """The destination is neutral or belongs to the same player. We will
         simply move the units from the origin to the destination and set the ownership."""
+        logger.debug(f'Movement to {self.destination.id} is considered an expansion or relocation')
         self.destination.set_owner(self.origin.owner)
 
         while self.num_troops > self.num_troops_moved:
@@ -341,8 +353,12 @@ class Instruction:
             self.origin.take_unit(Troop).move(self.destination)
             self.num_troops_moved += 1
 
+        logger.debug(f'Moved {self.num_troops_moved} troops')
+
     def execute(self) -> Instruction:
         """Execute the order. This will alter the territories it belongs to."""
+        logger.info(f'[red]Executing[/red]: {self.repr_arrow()}')
+
         self.assert_is_valid()
 
         if self.is_executed:
@@ -351,18 +367,25 @@ class Instruction:
         if not self.instruction_set:
             raise InstructionNotInInstructionSet()
 
+        if self.num_troops <= 0 or self.num_troops - self.num_troops_moved <= 0:
+            logger.warning(f'No troops left to execute instruction ({self.num_troops} instructed, {self.num_troops - self.num_troops_moved} available)')
+
         if self.destination.is_neutral() or self.origin.owner == self.destination.owner:
             """The destination is neutral or belongs to the same player. We will
             simply move the units from the origin to the destination and set the ownership."""
+            logger.debug('Destination is neutral or origin owner is the same as the destination owner')
             self.resolve_expansion()
         elif skirmishes := self.instruction_set.find_skirmishes(self):
             """There are other Instructions that conflict with this one. This leads to skirmishes.
             We will have to resolve those skirmishes first."""
+            logger.debug(f'Found {len(skirmishes)} skirmish' + ('es' if len(skirmishes) > 1 else ''))
             self.resolve_skirmish(skirmishes)
         else:
             """We are dealing with an invasion here: the target territory already belongs
             to another player. We will have to resolve the battle and units will be lost."""
+            logger.debug('Not an expansion and no skirmishes found; defaulting to invasion')
             self.resolve_invasion()
 
         self.is_executed = True
+        logger.info(f'[green]Finished execution[/green] with destination territory result: (id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})')
         return self

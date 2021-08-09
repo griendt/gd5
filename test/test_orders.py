@@ -3,7 +3,11 @@ import unittest
 from faker import Faker
 
 from excepts import InvalidInstruction, InstructionAlreadyExecuted
+import logging
 from world import Instruction, Territory, Player, Troop, InstructionSet
+
+
+logger = logging.getLogger(__name__)
 
 
 class InstructionsTest(unittest.TestCase):
@@ -214,6 +218,28 @@ class InstructionsTest(unittest.TestCase):
         self.assertTrue(i1.is_executed)
         self.assertTrue(i2.is_executed)
         self.assertTrue(i3.is_executed)
+
+    def test_simple_invasion_from_multiple_origins(self):
+        p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
+        t1, t2, t3 = Territory(owner=p1), Territory(owner=p1), Territory(owner=p2)
+        iset = InstructionSet()
+
+        i1 = Instruction(issuer=p1, origin=t1, destination=t3, num_troops=2, instruction_set=iset)
+        i2 = Instruction(issuer=p1, origin=t2, destination=t3, num_troops=3, instruction_set=iset)
+
+        for i in range(3):
+            Troop(territory=t1)
+
+        for i in range(4):
+            Troop(territory=t2)
+
+        for i in range(20):
+            Troop(territory=t3)
+
+        i1.execute()
+        pass
+
+
 
 
 if __name__ == "__main__":
