@@ -92,13 +92,13 @@ class InstructionsTest(unittest.TestCase):
         t1, t2 = Territory(owner=p1), Territory(owner=p2)
         iset = InstructionSet()
 
-        for i in range(8):
+        for i in range(9):
             Troop(territory=t1)
 
         for i in range(5):
             Troop(territory=t2)
 
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=7, instruction_set=iset).execute()
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=8, instruction_set=iset).execute()
 
         self.assertTerritoryHasTroops(t1, 1)
         self.assertTerritoryHasTroops(t2, 1)
@@ -110,13 +110,13 @@ class InstructionsTest(unittest.TestCase):
         t1, t2 = Territory(owner=p1), Territory(owner=p2)
         iset = InstructionSet()
 
-        for i in range(5):
+        for i in range(6):
             Troop(territory=t1)
 
         for i in range(3):
             Troop(territory=t2)
 
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset).execute()
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=5, instruction_set=iset).execute()
 
         self.assertTerritoryHasTroops(t1, 1)
         self.assertTerritoryHasTroops(t2, 0)
@@ -173,8 +173,8 @@ class InstructionsTest(unittest.TestCase):
         self.assertTerritoryHasTroops(t2, 2)
 
         # Player 1 should have 3 of its 5 units remaining that go onward to invade.
-        # This means two of Player 3's troops are expected to be slain.
-        self.assertTerritoryHasTroops(t3, 8)
+        # This means one of Player 3's troops is expected to be slain.
+        self.assertTerritoryHasTroops(t3, 9)
 
         # In executing the first order, the second order involved in the skirmish was also executed automatically.
         self.assertTrue(i2.is_executed)
@@ -186,7 +186,7 @@ class InstructionsTest(unittest.TestCase):
 
         i1 = Instruction(issuer=p1, origin=t1, destination=t4, num_troops=5, instruction_set=iset)
         i2 = Instruction(issuer=p2, origin=t2, destination=t4, num_troops=2, instruction_set=iset)
-        i3 = Instruction(issuer=p3, origin=t3, destination=t4, num_troops=8, instruction_set=iset)
+        i3 = Instruction(issuer=p3, origin=t3, destination=t4, num_troops=9, instruction_set=iset)
 
         for i in range(6):
             Troop(territory=t1)
@@ -194,7 +194,7 @@ class InstructionsTest(unittest.TestCase):
         for i in range(3):
             Troop(territory=t2)
 
-        for i in range(9):
+        for i in range(10):
             Troop(territory=t3)
 
         for i in range(1):
@@ -209,8 +209,8 @@ class InstructionsTest(unittest.TestCase):
         self.assertTerritoryHasTroops(t2, 1)
         self.assertTerritoryHasTroops(t3, 1)
 
-        # Notice that in the skirmishes, all troops are to be vanquished save 3 of Player 3's troops.
-        # These 3 troops then go on to invade the single troop in t4 and take over.
+        # Notice that in the skirmishes, all troops are to be vanquished save 4 of Player 3's troops.
+        # These 4 troops then go on to invade the single troop in t4 and take over.
         self.assertTerritoryHasTroops(t4, 1)
         self.assertTerritoryOwner(t4, p3)
 

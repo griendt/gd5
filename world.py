@@ -248,9 +248,10 @@ class Instruction:
         *num_troops_moved* parameter. This is useful in case of skirmishes that wind up having
         a section that is to be parsed as an invasion."""
         logger.debug(f'Resolving invasion: {self.repr_arrow()}')
-        # Apply the 1-Troop penalty to the attacker.
-        self.origin.take_unit(Troop).remove()
-        self.num_troops_moved += 1
+        # Apply the 2-Troop penalty to the attacker.
+        for _ in range(2):
+            self.origin.take_unit(Troop).remove()
+            self.num_troops_moved += 1
         logger.debug('Applied 1 troop penalty to the invader')
 
         while self.num_troops > self.num_troops_moved:
