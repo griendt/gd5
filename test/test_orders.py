@@ -37,7 +37,7 @@ class InstructionsTest(unittest.TestCase):
         t1, t2 = Territory(owner=p1), Territory()
 
         Troop(territory=t1)
-        order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=2)
+        order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=1)
 
         with self.assertRaises(InvalidInstruction):
             order.assert_is_valid()
@@ -47,6 +47,7 @@ class InstructionsTest(unittest.TestCase):
         t1, t2 = Territory(owner=p1), Territory()
         iset = InstructionSet()
 
+        Troop(territory=t1)
         Troop(territory=t1)
         Troop(territory=t1)
 

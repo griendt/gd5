@@ -236,7 +236,7 @@ class Instruction:
             logger.error('Invalid instruction: issuer is not the origin owner')
             raise InvalidInstruction("Issuer is not the origin owner")
 
-        if self.num_troops > len({unit for unit in self.origin.all(Troop)}):
+        if self.num_troops >= len({unit for unit in self.origin.all(Troop)}):
             logger.error('Invalid instruction: insufficient troops in origin territory')
             raise InvalidInstruction("Insufficient troops in origin territory")
 
