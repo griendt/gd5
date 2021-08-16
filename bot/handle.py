@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, TypeVar
+from typing import Callable, TypeVar, Any
 
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 from telegram.ext.callbackcontext import CallbackContext
@@ -36,7 +36,7 @@ def add_context(func: Callable[[], None]) -> Callable[[Update, CallbackContext],
     return decorator
 
 
-def bot_command(func: Callable[[], None]) -> Callable[[Update, CallbackContext], None]:
+def bot_command(func: Callable[[Any], None]) -> Callable[[Update, CallbackContext], None]:
     """Automatically initializes the bot with the current message and registers a command handler."""
 
     @wraps(func)
