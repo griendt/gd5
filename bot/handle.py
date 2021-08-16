@@ -48,20 +48,22 @@ def bot_command(func: Callable[[], None]) -> Callable[[Update, CallbackContext],
     return new_func
 
 
-def bot_answer(func: Callable[[T], U]) -> Callable[[T], U]:
+def bot_answer(answer: str = None):
     """Decorator that makes the bot automatically answer (i.e. resolve) callback queries."""
 
-    @add_context
-    def func_with_context(*args, **kwargs):
-        return func(*args, **kwargs)
+    def inner(func: Callable[[], None]) -> Callable[[Update, CallbackContext], None]:
+        @wraps(func)
+        @add_context
+        def func_with_context(*args, **kwargs):
+            return func(*args, **kwargs)
 
-    @wraps(func_with_context)
-    def decorator(*args, **kwargs):
-        ret_value = func_with_context(*args, **kwargs)
-        bot.update.callback_query.answer()
-        return ret_value
+        @wraps(func_with_context)
+        def decorator(update: Update, context: CallbackContext):
+            func_with_context(update, context)
+            bot.update.callback_query.answer(answer)
 
-    return decorator
+        return decorator
+    return inner
 
 
 @bot_command
@@ -76,7 +78,7 @@ def button():
     bot.reply("Select an option")
 
 
-@bot_answer
+@bot_answer()
 def parse_button():
     # Corresponding values can be "x" and "y", see button() above
     bot.reply(f"Corresponding value was: {bot.update.callback_query.data}")
