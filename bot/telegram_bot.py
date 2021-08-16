@@ -21,5 +21,5 @@ class Bot(object):
         reply_markup = InlineKeyboardMarkup([self.reply_markup]) if self.reply_markup else None
         self.update.effective_message.reply_text(text=text, reply_markup=reply_markup)
 
-    def add_button(self, text: str, callback: Callable) -> None:
+    def add_button(self, text: str, callback: str) -> None:
         self.reply_markup.append(InlineKeyboardButton(text=text, callback_data=callback))
