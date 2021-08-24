@@ -343,7 +343,11 @@ class Instruction:
         belongs to a different player, and hence they can be treated as individual armies. Note that two
         Instructions with the same destination can belong to the same player and they will be treated as
         two separate armies; however, those two armies do not skirmish."""
-        logger.debug(f'{self.repr_arrow()} has skirmishes with:\n - ' + '\n - '.join([skirmish.repr_arrow() for skirmish in skirmishes]))
+        logger.debug(f'{self.repr_arrow()} has skirmishes with:')
+        logger.indents += 1
+        for skirmish in skirmishes:
+            logger.debug(f'- {skirmish.repr_arrow()}')
+        logger.indents -= 1
         issuers = {instruction.issuer for instruction in skirmishes}
         issuers.add(self.issuer)
 
@@ -414,7 +418,7 @@ class Instruction:
         if self.is_executing:
             raise InstructionAlreadyExecuting()
 
-        logger.info(f'[red]Executing[/red]: {self.repr_arrow()}')
+        logger.info(f'[blue]Executing[/blue]: {self.repr_arrow()}')
         self.is_executing = True
         self.assert_is_valid()
 
