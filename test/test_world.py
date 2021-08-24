@@ -3,12 +3,13 @@ import unittest
 from faker import Faker
 
 from excepts import InsufficientUnitsException
+from test.case import TestCase
 from world import World, Territory, LandBiome, Player, Troop, Unit, General, Cavalry
 
+name = Faker().name
 
-class WorldTest(unittest.TestCase):
-    faker = Faker()
 
+class WorldTest(TestCase):
     def test_empty_world_initialization(self):
         """A world can be initialized without parameters."""
         world = World()
@@ -52,7 +53,7 @@ class WorldTest(unittest.TestCase):
 
     def test_player_initialization_requires_only_name(self):
         """A player can be initialized only by name; other fields should have default values."""
-        player = Player(name=self.faker.name())
+        player = Player(name=name())
 
         self.assertEqual("", player.description)
         self.assertEqual(0, player.influence_points)
@@ -60,10 +61,10 @@ class WorldTest(unittest.TestCase):
     def test_player_names_cannot_be_reassigned(self):
         """A player, once initialized, cannot change his name. This is a requirement due to
         the fact that player hashing goes by name."""
-        player = Player(name=self.faker.name())
+        player = Player(name=name())
 
         while True:
-            new_name = self.faker.name()
+            new_name = name()
             if player.name != new_name:
                 break
 

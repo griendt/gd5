@@ -5,24 +5,13 @@ from faker import Faker
 
 from excepts import InvalidInstruction, InstructionAlreadyExecuted
 from logger import logger
+from test.case import TestCase
 from world import Instruction, Territory, Player, Troop, InstructionSet
 
+name = Faker().name
 
-class InstructionsTest(unittest.TestCase):
-    faker = Faker()
 
-    def setUp(self) -> None:
-        logger.debug(f"Running test: [b][yellow]{self._testMethodName}[/yellow][/b]")
-        logger.indents += 1
-
-    def tearDown(self) -> None:
-        logger.indents -= 1
-        logger.debug(f"Finished test: [b][yellow]{self._testMethodName}[/yellow][/b]")
-
-    def skipTest(self, reason: Any) -> None:
-        logger.warning(f"[red]Skipped test[/red] ([i]{reason}[/i])")
-        super().skipTest(reason)
-
+class InstructionsTest(TestCase):
     def assertTerritoryHasTroops(self, territory: Territory, num_troops: int) -> None:
         self.assertEqual(num_troops, len(territory.all(Troop)))
 
@@ -33,7 +22,7 @@ class InstructionsTest(unittest.TestCase):
         self.assertIsNone(territory.owner)
 
     def test_instruction_with_other_origin_owner_is_invalid(self):
-        p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
+        p1, p2 = Player(name=name()), Player(name=name())
         t1, t2 = Territory(owner=p2), Territory()
 
         Troop(territory=t1)
@@ -43,7 +32,7 @@ class InstructionsTest(unittest.TestCase):
             order.assert_is_valid()
 
     def test_instruction_with_insufficient_units_is_invalid(self):
-        p1 = Player(name=self.faker.name())
+        p1 = Player(name=name())
         t1, t2 = Territory(owner=p1), Territory()
 
         Troop(territory=t1)
@@ -53,7 +42,7 @@ class InstructionsTest(unittest.TestCase):
             order.assert_is_valid()
 
     def test_instruction_can_be_executed_only_once(self):
-        p1 = Player(name=self.faker.name())
+        p1 = Player(name=name())
         t1, t2 = Territory(owner=p1), Territory()
         iset = InstructionSet()
 
@@ -67,7 +56,7 @@ class InstructionsTest(unittest.TestCase):
             order.execute()
 
     def test_expansion_to_an_empty_territory(self):
-        p1 = Player(name=self.faker.name())
+        p1 = Player(name=name())
         t1, t2 = Territory(owner=p1), Territory()
         iset = InstructionSet()
 
@@ -81,7 +70,7 @@ class InstructionsTest(unittest.TestCase):
         self.assertTerritoryHasTroops(t2, 6)
 
     def test_distributing_to_friendly_territory_costs_no_units(self):
-        p1 = Player(name=self.faker.name())
+        p1 = Player(name=name())
         t1, t2 = Territory(owner=p1), Territory(owner=p1)
         iset = InstructionSet()
 
@@ -99,7 +88,7 @@ class InstructionsTest(unittest.TestCase):
         self.assertTerritoryOwner(t2, p1)
 
     def test_simple_successful_invasion(self):
-        p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
+        p1, p2 = Player(name=name()), Player(name=name())
         t1, t2 = Territory(owner=p1), Territory(owner=p2)
         iset = InstructionSet()
 
@@ -117,7 +106,7 @@ class InstructionsTest(unittest.TestCase):
         self.assertTerritoryOwner(t2, p1)
 
     def test_invasion_can_render_the_target_neutral(self):
-        p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
+        p1, p2 = Player(name=name()), Player(name=name())
         t1, t2 = Territory(owner=p1), Territory(owner=p2)
         iset = InstructionSet()
 
@@ -135,7 +124,7 @@ class InstructionsTest(unittest.TestCase):
         self.assertTerritoryNeutral(t2)
 
     def test_mutual_invasion(self):
-        p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
+        p1, p2 = Player(name=name()), Player(name=name())
         t1, t2 = Territory(owner=p1), Territory(owner=p2)
         iset = InstructionSet()
         i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=3, instruction_set=iset)
@@ -168,7 +157,7 @@ class InstructionsTest(unittest.TestCase):
         self.assertTrue(i2.is_executed)
 
     def test_multiple_origin_skirmish_with_different_players(self):
-        p1, p2, p3 = Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name())
+        p1, p2, p3 = Player(name=name()), Player(name=name()), Player(name=name())
         t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
         iset = InstructionSet()
 
@@ -200,7 +189,7 @@ class InstructionsTest(unittest.TestCase):
         self.assertTrue(i2.is_executed)
 
     def test_triple_skirmish_with_three_players(self):
-        p1, p2, p3, p4 = Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name())
+        p1, p2, p3, p4 = Player(name=name()), Player(name=name()), Player(name=name()), Player(name=name())
         t1, t2, t3, t4 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3), Territory(owner=p4)
         iset = InstructionSet()
 
@@ -241,7 +230,7 @@ class InstructionsTest(unittest.TestCase):
 
     def test_simple_invasion_from_multiple_origins(self):
         self.skipTest('Need to properly define the spec of multi-origin invasions')
-        p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
+        p1, p2 = Player(name=name()), Player(name=name())
         t1, t2, t3 = Territory(owner=p1), Territory(owner=p1), Territory(owner=p2)
         iset = InstructionSet()
 
@@ -263,7 +252,7 @@ class InstructionsTest(unittest.TestCase):
 
     def test_order_of_chain_of_invasions(self):
         self.skipTest("Chain of invasions not yet implemented")
-        p1, p2, p3 = Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name())
+        p1, p2, p3 = Player(name=name()), Player(name=name()), Player(name=name())
         t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
         iset = InstructionSet()
 
@@ -285,7 +274,7 @@ class InstructionsTest(unittest.TestCase):
 
     def test_circular_invasions(self):
         self.skipTest("Circular invasion detection not yet implemented")
-        p1, p2, p3 = Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name())
+        p1, p2, p3 = Player(name=name()), Player(name=name()), Player(name=name())
         t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
         iset = InstructionSet()
 
