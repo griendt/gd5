@@ -20,7 +20,7 @@ class InstructionsTest(unittest.TestCase):
         logger.debug(f"Finished test: [b][yellow]{self._testMethodName}[/yellow][/b]")
 
     def skipTest(self, reason: Any) -> None:
-        logger.warning(f"Skipped test: [b][yellow]{self._testMethodName}[/yellow][/b]")
+        logger.warning(f"[red]Skipped test[/red] ([i]{reason}[/i])")
         super().skipTest(reason)
 
     def assertTerritoryHasTroops(self, territory: Territory, num_troops: int) -> None:
@@ -240,6 +240,7 @@ class InstructionsTest(unittest.TestCase):
         self.assertTrue(i3.is_executed)
 
     def test_simple_invasion_from_multiple_origins(self):
+        self.skipTest('Need to properly define the spec of multi-origin invasions')
         p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
         t1, t2, t3 = Territory(owner=p1), Territory(owner=p1), Territory(owner=p2)
         iset = InstructionSet()
@@ -257,7 +258,8 @@ class InstructionsTest(unittest.TestCase):
             Troop(territory=t3)
 
         i1.execute()
-        pass
+
+        raise NotImplementedError
 
     def test_order_of_chain_of_invasions(self):
         self.skipTest("Chain of invasions not yet implemented")

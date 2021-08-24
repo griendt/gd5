@@ -423,9 +423,11 @@ class Instruction:
         self.assert_is_valid()
 
         if self.is_executed:
+            logger.error('Instruction already executed')
             raise InstructionAlreadyExecuted()
 
         if not self.instruction_set:
+            logger.error('Instruction is not in InstructionSet')
             raise InstructionNotInInstructionSet()
 
         if self.num_troops <= 0 or self.num_troops - self.num_troops_moved <= 0:
@@ -438,6 +440,7 @@ class Instruction:
             self.resolve_expansion()
         elif self.instruction_type == InstructionType.SKIRMISH:
             if not self.skirmishing_instructions:
+                logger.error('Instruction is marked as Skirmish but has no Skirmishing Instructions')
                 raise InstructionNoSkirmishingInstructions()
 
             """There are other Instructions that conflict with this one. This leads to skirmishes.
@@ -450,6 +453,7 @@ class Instruction:
             logger.debug('Resolving invasion (not an expansion and no skirmishes found)')
             self.resolve_invasion()
         else:
+            logger.error(f'Unknown instruction type: {self.instruction_type.name}')
             raise InvalidInstructionType(self.instruction_type.name)
 
         self.is_executed = True
