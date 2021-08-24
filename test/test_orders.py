@@ -162,7 +162,6 @@ class InstructionsTest(unittest.TestCase):
         self.assertTerritoryOwner(t2, p2)
         self.assertTrue(i2.is_executed)
 
-
     def test_multiple_origin_skirmish_with_different_players(self):
         p1, p2, p3 = Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name())
         t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
@@ -241,7 +240,7 @@ class InstructionsTest(unittest.TestCase):
         iset = InstructionSet()
 
         i1 = Instruction(issuer=p1, origin=t1, destination=t3, num_troops=2, instruction_set=iset)
-        i2 = Instruction(issuer=p1, origin=t2, destination=t3, num_troops=3, instruction_set=iset)
+        Instruction(issuer=p1, origin=t2, destination=t3, num_troops=3, instruction_set=iset)
 
         for i in range(3):
             Troop(territory=t1)
@@ -256,7 +255,7 @@ class InstructionsTest(unittest.TestCase):
         pass
 
     def test_order_of_chain_of_invasions(self):
-        self.skipTest("Needs implementation")
+        self.skipTest("Chain of invasions not yet implemented")
         p1, p2, p3 = Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name())
         t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
         iset = InstructionSet()
@@ -278,7 +277,7 @@ class InstructionsTest(unittest.TestCase):
         self.assertTerritoryHasTroops(t3, 4)
 
     def test_circular_invasions(self):
-        self.skipTest("Needs implementation")
+        self.skipTest("Circular invasion detection not yet implemented")
         p1, p2, p3 = Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name())
         t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
         iset = InstructionSet()
@@ -304,6 +303,7 @@ class InstructionsTest(unittest.TestCase):
         self.assertTerritoryHasTroops(t1, 0)
         self.assertTerritoryHasTroops(t2, 1)
         self.assertTerritoryHasTroops(t3, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
