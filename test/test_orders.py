@@ -1,17 +1,22 @@
 import unittest
+from typing import Any
 
 from faker import Faker
 
 from excepts import InvalidInstruction, InstructionAlreadyExecuted
-import logging
+from logger import logger
 from world import Instruction, Territory, Player, Troop, InstructionSet
-
-
-logger = logging.getLogger(__name__)
 
 
 class InstructionsTest(unittest.TestCase):
     faker = Faker()
+
+    def setUp(self) -> None:
+        logger.debug(f"Running test: [b][yellow]{self._testMethodName}[/yellow][/b]")
+
+    def skipTest(self, reason: Any) -> None:
+        logger.warning(f"Skipped test: [b][yellow]{self._testMethodName}[/yellow][/b]")
+        super().skipTest(reason)
 
     def assertTerritoryHasTroops(self, territory: Territory, num_troops: int) -> None:
         self.assertEqual(num_troops, len(territory.all(Troop)))
@@ -124,7 +129,7 @@ class InstructionsTest(unittest.TestCase):
         self.assertTerritoryOwner(t1, p1)
         self.assertTerritoryNeutral(t2)
 
-    def test_simple_skirmish_mutual_invasion(self):
+    def test_mutual_invasion(self):
         p1, p2 = Player(name=self.faker.name()), Player(name=self.faker.name())
         t1, t2 = Territory(owner=p1), Territory(owner=p2)
         iset = InstructionSet()
@@ -134,19 +139,29 @@ class InstructionsTest(unittest.TestCase):
         for i in range(6):
             Troop(territory=t1)
 
-        for i in range(4):
+        for i in range(10):
             Troop(territory=t2)
 
         i1.execute()
 
-        # All units involved in the skirmish were lost.
+        # The first Instruction in the mutual invasion has triggered both Troop penalties.
+        # Hence, the target has 10 - 2 - (3-2) = 7 troops left.
         self.assertTerritoryHasTroops(t1, 3)
-        self.assertTerritoryHasTroops(t2, 1)
+        self.assertTerritoryHasTroops(t2, 7)
         self.assertTerritoryOwner(t1, p1)
         self.assertTerritoryOwner(t2, p2)
 
-        # In executing the first order, the second order involved in the skirmish was also executed automatically.
+        # In executing the first order, the second order involved was not processed automatically!
+        self.assertFalse(i2.is_executed)
+
+        i2.execute()
+        # The Troop penalty should not occur another time; only the normal flow of the battle should continue.
+        self.assertTerritoryHasTroops(t1, 0)
+        self.assertTerritoryHasTroops(t2, 4)
+        self.assertTerritoryNeutral(t1)
+        self.assertTerritoryOwner(t2, p2)
         self.assertTrue(i2.is_executed)
+
 
     def test_multiple_origin_skirmish_with_different_players(self):
         p1, p2, p3 = Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name())
@@ -240,8 +255,55 @@ class InstructionsTest(unittest.TestCase):
         i1.execute()
         pass
 
+    def test_order_of_chain_of_invasions(self):
+        self.skipTest("Needs implementation")
+        p1, p2, p3 = Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name())
+        t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
+        iset = InstructionSet()
 
+        i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
+        i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
 
+        for i in range(6):
+            Troop(territory=t1)
+            Troop(territory=t2)
+            Troop(territory=t3)
+
+        i1.execute()
+
+        self.assertTerritoryHasTroops(t1, 2)
+        self.assertTrue(i1.is_executed)
+        self.assertTrue(i2.is_executed)
+        self.assertTerritoryHasTroops(t2, 0)
+        self.assertTerritoryHasTroops(t3, 4)
+
+    def test_circular_invasions(self):
+        self.skipTest("Needs implementation")
+        p1, p2, p3 = Player(name=self.faker.name()), Player(name=self.faker.name()), Player(name=self.faker.name())
+        t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
+        iset = InstructionSet()
+
+        i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
+        i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
+        i3 = Instruction(issuer=p3, origin=t3, destination=t1, num_troops=4, instruction_set=iset)
+
+        for i in range(6):
+            Troop(territory=t1)
+            Troop(territory=t2)
+            Troop(territory=t3)
+
+        i1.execute()
+
+        self.assertTrue(i1.is_executed)
+        self.assertTrue(i3.is_executed)
+        self.assertTrue(i2.is_executed)
+        # First, player 1 slays 2 troops of player 2 with 4 units.
+        # Then, player 3 slays 2 troops of player 1, rendering territory 1 neutral.
+        # Finally, player 2 can only use 3 of its 4 remaining units to attack, slaying 1 troop of player 3.
+        # This means player 1 is neutral, and players 2 and 3 each have one unit remaining.
+        self.assertTerritoryHasTroops(t1, 0)
+        self.assertTerritoryHasTroops(t2, 1)
+        self.assertTerritoryHasTroops(t3, 1)
 
 if __name__ == "__main__":
     unittest.main()

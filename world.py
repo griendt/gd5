@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from itertools import count
 from typing import Optional, TypeVar
 
-from excepts import InvalidInstruction, InstructionAlreadyExecuted, InsufficientUnitsException, \
-    InstructionNotInInstructionSet
+from excepts import (
+    InvalidInstruction,
+    InstructionAlreadyExecuted,
+    InsufficientUnitsException,
+    InstructionNotInInstructionSet,
+    InstructionAlreadyExecuting,
+    InstructionNoSkirmishingInstructions,
+    InvalidInstructionType
+)
 from logger import logger
 
 T = TypeVar('T')
@@ -176,33 +184,54 @@ class InstructionSet:
 
     instructions: list[Instruction] = field(default_factory=lambda: list())
 
-    def find_skirmishes(self, instruction: Instruction) -> list[Instruction]:
-        """Given *instruction*, look for other instructions that will cause a skirmish with it."""
-        skirmishing_instructions: list[Instruction] = [
-            other_instruction for other_instruction in self.instructions
-            if (
-                # An instruction cannot skirmish with itself, obviously.
-                    other_instruction is not instruction and
-                    (
-                            (
-                                # Two different armies, belonging to different players, going to the same destination.
-                                    other_instruction.destination == instruction.destination and
-                                    other_instruction.issuer != instruction.issuer
-                            ) or
-                            (
-                                # Small circular skirmish where two territories attack each other
-                                    other_instruction.origin == instruction.destination and
-                                    other_instruction.destination == instruction.origin
-                            )
-                    )
-            )]
+    def add_instruction(self, instruction: Instruction) -> None:
+        """The preferred way to add instructions. This is because the InstructionSet may hydrate Instructions with
+        extra info, such as whether it is a skirmish and/or invasion and so on."""
+        if instruction in self.instructions:
+            return
 
-        return skirmishing_instructions
+        self.instructions.append(instruction)
+
+        if instruction.issuer == instruction.destination.owner:
+            instruction.instruction_type = InstructionType.DISTRIBUTION
+        elif [
+            instr for instr in self.instructions
+            if instr.destination == instruction.destination and instr.issuer != instruction.issuer and instr.issuer != instr.destination.owner
+        ]:
+            # There is another Player attempting to expand/invade to this destination. Hence, we're dealing with a skirmish.
+            # Note that if this other Player is the same player as the destination owner (if any), there is no skirmish, because
+            # such a movement is a Distribution, which is to be executed before attacks.
+            instructions_to_same_destination = [instr for instr in self.instructions if instr.destination == instruction.destination]
+            for instr in instructions_to_same_destination:
+                instr.instruction_type = InstructionType.SKIRMISH
+                instr.skirmishing_instructions = [i for i in instructions_to_same_destination if i != instr]
+        elif instruction.destination.is_neutral():
+            instruction.instruction_type = InstructionType.EXPANSION
+        else:
+            # The target Territory belongs to a different Player. Therefore this is an Invasion.
+            instruction.instruction_type = InstructionType.INVASION
+            try:
+                mutual_invasion = [
+                    instr for instr in self.instructions
+                    if instr.issuer == instruction.destination.owner and instr.destination == instruction.origin
+                ][0]
+                instruction.mutual_invasion = mutual_invasion
+                mutual_invasion.mutual_invasion = instruction
+            except IndexError:
+                # No mutual invasion found.
+                pass
 
     def __post_init__(self):
         """Make sure that each Instruction is registered as being in this InstructionSet."""
         for instruction in self.instructions:
             instruction.instruction_set = self
+
+
+class InstructionType(Enum):
+    EXPANSION = 1
+    DISTRIBUTION = 2
+    INVASION = 3
+    SKIRMISH = 4
 
 
 @dataclass
@@ -213,19 +242,24 @@ class Instruction:
     origin: Territory
     destination: Territory
     instruction_set: InstructionSet = None
+    instruction_type: InstructionType = None
     num_troops: int = 0
     num_troops_moved: int = 0
+    is_executing: bool = False
     is_executed: bool = False
+
+    skirmishing_instructions: list[Instruction] = None
+    mutual_invasion: Instruction = None
 
     def __post_init__(self):
         """Make sure to register this Instruction to its InstructionSet."""
         if self.instruction_set and self not in self.instruction_set.instructions:
-            self.instruction_set.instructions.append(self)
+            self.instruction_set.add_instruction(self)
 
     def repr_arrow(self) -> str:
         return (
-            f'(id={self.origin.id}, {self.origin.owner.name}, troops={len(self.origin.all(Troop))})-[{self.num_troops - self.num_troops_moved}/{self.num_troops}]->' +
-            f'(id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})'
+                f'(id={self.origin.id}, {self.origin.owner.name}, troops={len(self.origin.all(Troop))})-[{self.num_troops - self.num_troops_moved}/{self.num_troops}]->' +
+                f'(id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})'
         )
 
     def assert_is_valid(self) -> None:
@@ -248,11 +282,28 @@ class Instruction:
         *num_troops_moved* parameter. This is useful in case of skirmishes that wind up having
         a section that is to be parsed as an invasion."""
         logger.debug(f'Resolving invasion: {self.repr_arrow()}')
+        #
+        # # First, we need to check whether the target territory is also invading a (third) territory in this set.
+        # # If so, that invasion must be resolved first.
+        # if higher_priority_invasions := self.instruction_set.find_higher_priority_invasions(self):
+        #     logger.info(f"This invasion has superseding invasions:\n  - " + "\n  - ".join([invasion.repr_arrow() for invasion in higher_priority_invasions]))
+        #     for instruction in higher_priority_invasions:
+        #         instruction.execute()
+        #
+        #     logger.info(f"Resolved superseding invasions")
+
         # Apply the 2-Troop penalty to the attacker.
-        for _ in range(2):
-            self.origin.take_unit(Troop).remove()
-            self.num_troops_moved += 1
-        logger.debug('Applied 1 troop penalty to the invader')
+        is_mutual_invasion = self.mutual_invasion and not self.mutual_invasion.is_executed
+        should_incur_penalty = not (self.mutual_invasion and self.mutual_invasion.is_executed)
+        if should_incur_penalty:
+            for _ in range(2):
+                self.origin.take_unit(Troop).remove()
+                if is_mutual_invasion:
+                    self.destination.take_unit(Troop).remove()
+                self.num_troops_moved += 1
+            logger.debug('Applied 2 troop penalty to the invader')
+            if is_mutual_invasion:
+                logger.info('Also applied 2 troop penalty to the target due to mutual invasion')
 
         while self.num_troops > self.num_troops_moved:
             # Remove a troop from both sides in an equal ratio, as long as this is possible
@@ -263,7 +314,8 @@ class Instruction:
             else:
                 # Either army is completely exhausted.
                 # The battle ends.
-                logger.debug(f'Either army is completely exhausted; the battle ends after {self.num_troops_moved} of {self.num_troops} invaders have been killed')
+                logger.debug(
+                    f'At least one army is completely exhausted; the battle ends after {self.num_troops_moved} of {self.num_troops} invaders have been killed')
                 break
 
             self.num_troops_moved += 1
@@ -291,7 +343,7 @@ class Instruction:
         belongs to a different player, and hence they can be treated as individual armies. Note that two
         Instructions with the same destination can belong to the same player and they will be treated as
         two separate armies; however, those two armies do not skirmish."""
-        logger.debug(f'{self.repr_arrow()} has skirmishes with: ' + ' and '.join([skirmish.repr_arrow() for skirmish in skirmishes]))
+        logger.debug(f'{self.repr_arrow()} has skirmishes with:\n - ' + '\n - '.join([skirmish.repr_arrow() for skirmish in skirmishes]))
         issuers = {instruction.issuer for instruction in skirmishes}
         issuers.add(self.issuer)
 
@@ -347,7 +399,7 @@ class Instruction:
         """The destination is neutral or belongs to the same player. We will
         simply move the units from the origin to the destination and set the ownership."""
         logger.debug(f'Movement to {self.destination.id} is considered an expansion or relocation')
-        self.destination.set_owner(self.origin.owner)
+        self.destination.set_owner(self.issuer)
 
         while self.num_troops > self.num_troops_moved:
             # Note: we regard each troop here as being identical.
@@ -358,8 +410,12 @@ class Instruction:
 
     def execute(self) -> Instruction:
         """Execute the order. This will alter the territories it belongs to."""
-        logger.info(f'[red]Executing[/red]: {self.repr_arrow()}')
 
+        if self.is_executing:
+            raise InstructionAlreadyExecuting()
+
+        logger.info(f'[red]Executing[/red]: {self.repr_arrow()}')
+        self.is_executing = True
         self.assert_is_valid()
 
         if self.is_executed:
@@ -371,22 +427,29 @@ class Instruction:
         if self.num_troops <= 0 or self.num_troops - self.num_troops_moved <= 0:
             logger.warning(f'No troops left to execute instruction ({self.num_troops} instructed, {self.num_troops - self.num_troops_moved} available)')
 
-        if self.destination.is_neutral() or self.origin.owner == self.destination.owner:
+        if self.instruction_type in [InstructionType.EXPANSION, InstructionType.DISTRIBUTION]:
             """The destination is neutral or belongs to the same player. We will
             simply move the units from the origin to the destination and set the ownership."""
             logger.debug('Destination is neutral or origin owner is the same as the destination owner')
             self.resolve_expansion()
-        elif skirmishes := self.instruction_set.find_skirmishes(self):
+        elif self.instruction_type == InstructionType.SKIRMISH:
+            if not self.skirmishing_instructions:
+                raise InstructionNoSkirmishingInstructions()
+
             """There are other Instructions that conflict with this one. This leads to skirmishes.
             We will have to resolve those skirmishes first."""
-            logger.debug(f'Found {len(skirmishes)} skirmish' + ('es' if len(skirmishes) > 1 else ''))
-            self.resolve_skirmish(skirmishes)
-        else:
+            logger.debug(f'Found {len(self.skirmishing_instructions)} skirmish' + ('es' if len(self.skirmishing_instructions) > 1 else ''))
+            self.resolve_skirmish(self.skirmishing_instructions)
+        elif self.instruction_type == InstructionType.INVASION:
             """We are dealing with an invasion here: the target territory already belongs
             to another player. We will have to resolve the battle and units will be lost."""
-            logger.debug('Not an expansion and no skirmishes found; defaulting to invasion')
+            logger.debug('Resolving invasion (not an expansion and no skirmishes found)')
             self.resolve_invasion()
+        else:
+            raise InvalidInstructionType(self.instruction_type.name)
 
         self.is_executed = True
-        logger.info(f'[green]Finished execution[/green] with destination territory result: (id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})')
+        self.is_executing = False
+        logger.info(
+            f'[green]Finished execution[/green] with destination territory result: (id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})')
         return self
