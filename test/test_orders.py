@@ -300,6 +300,28 @@ class InstructionsTest(TestCase):
         self.assertTerritoryHasTroops(t1, 1)
         self.assertTerritoryOwner(t1, p3)
 
+    def test_invasion_can_be_rendered_partial_by_circular_invasions(self):
+        p1, p2, p3 = Player(name=name()), Player(name=name()), Player(name=name())
+        t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
+        iset = InstructionSet()
+
+        i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
+        i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
+        i3 = Instruction(issuer=p3, origin=t3, destination=t1, num_troops=4, instruction_set=iset)
+
+        for i in range(5):
+            Troop(territory=t1)
+            Troop(territory=t2)
+            Troop(territory=t3)
+
+        # At this point, all instructions are valid: 4 troops are being moved and 5 are in the territory.
+        # However, due to the circular resolve, instruction 1 kills some troops from territory 2, rendering
+        # instruction 2 partially valid. This should be permitted.
+        i1.execute()
+
+    # TODO: add partially rendered invasion situation in case of a conditional, e.g. a player moving from 1 to 2 to 3 in one turn
+    #   and territory 2 was fortified before the first attack. However this also demands that non-invasion moves were executed before invasions,
+    #   which is not yet implemented either.
 
 if __name__ == "__main__":
     unittest.main()
