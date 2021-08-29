@@ -12,7 +12,7 @@ from excepts import (
     InstructionNotInInstructionSet,
     InstructionAlreadyExecuting,
     InstructionNoSkirmishingInstructions,
-    InvalidInstructionType
+    InvalidInstructionType, UnwindingLoopedInstructions
 )
 from logger import logger
 
@@ -244,6 +244,7 @@ class Instruction:
     num_troops_moved: int = 0
     is_executing: bool = False
     is_executed: bool = False
+    is_part_of_loop: bool = False
 
     skirmishing_instructions: list[Instruction] = None
     mutual_invasion: Instruction = None
@@ -279,15 +280,46 @@ class Instruction:
         *num_troops_moved* parameter. This is useful in case of skirmishes that wind up having
         a section that is to be parsed as an invasion."""
         logger.debug(f'Resolving invasion: {self.repr_arrow()}')
-        #
-        # # First, we need to check whether the target territory is also invading a (third) territory in this set.
-        # # If so, that invasion must be resolved first.
-        # if higher_priority_invasions := self.instruction_set.find_higher_priority_invasions(self):
-        #     logger.info(f"This invasion has superseding invasions:\n  - " + "\n  - ".join([invasion.repr_arrow() for invasion in higher_priority_invasions]))
-        #     for instruction in higher_priority_invasions:
-        #         instruction.execute()
-        #
-        #     logger.info(f"Resolved superseding invasions")
+
+        # First, we need to check whether the target territory is also moving to a (third) territory in this set.
+        # If so, that invasion must be resolved first.
+        if higher_priority_movements := [
+            instruction for instruction in self.instruction_set.instructions
+            if instruction.origin == self.destination and not instruction.is_executed
+        ]:
+            logger.info(f"This invasion has superseding movements:\n  - " + "\n  - ".join([invasion.repr_arrow() for invasion in higher_priority_movements]))
+            try:
+                for instruction in higher_priority_movements:
+                    instruction.execute()
+            except (InstructionAlreadyExecuting, UnwindingLoopedInstructions) as exception:
+                # We must have a circular loop. Check all the instrutions that are currently executing,
+                # and take the one with the lowest origin territory number. As a tie-breaker, that one will be
+                # used to resolve the circle first.
+
+                first_origin_id = min([instruction.origin.id for instruction in self.instruction_set.instructions if instruction.is_executing])
+                self.is_part_of_loop = True
+
+                if isinstance(exception, InstructionAlreadyExecuting):
+                    # Only print some useful logging when first encountering the loop, to avoid clutter during unwinding.
+                    logger.info(f"Attempted to execute instruction, but got already executing error: {instruction.repr_arrow()}")
+                    logger.info(f"Found circular set of instructions\n  - " + "\n  - ".join(
+                        [instruction.repr_arrow() for instruction in self.instruction_set.instructions if instruction.is_executing]
+                    ))
+                    logger.info(f"The chosen origin id to be executed from is {first_origin_id}")
+
+                if self.origin.id == first_origin_id:
+                    logger.debug(f"Found instruction with lowest origin id ({self.origin.id}), resolving first")
+                else:
+                    # Re-raise the exception so the previous instruction in the loop can catch it.
+                    logger.debug(f"The current instruction is not the one with lowest origin id; skipping")
+                    raise UnwindingLoopedInstructions()
+
+            logger.info(f"Resolved superseding invasions for instruction: {self.repr_arrow()}")
+            for instruction in [instruction for instruction in self.instruction_set.instructions if instruction.is_executing and instruction != self]:
+                # The current instruction may now go through. If however this instruction was chosen because of a circular loop,
+                # then the other instructions in the loop are still set as executing, while they are no longer being executed.
+                # Hence, set their flag back to False so they can be processed as a normal chain.
+                instruction.is_executing = False
 
         # Apply the 2-Troop penalty to the attacker.
         is_mutual_invasion = self.mutual_invasion and not self.mutual_invasion.is_executed
@@ -457,4 +489,14 @@ class Instruction:
         self.is_executing = False
         logger.info(
             f'[green]Finished execution[/green] with destination territory result: (id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})')
+
+        if self.is_part_of_loop:
+            instructions_from_target = [
+                instruction for instruction in self.instruction_set.instructions
+                if instruction.origin == self.destination and not instruction.is_executed
+            ]
+            logger.info(f"This instruction was part of a loop; resolving instructions from target:\n  - " + "\n  - ".join([instruction.repr_arrow() for instruction in instructions_from_target]))
+            for instruction in instructions_from_target:
+                instruction.execute()
+
         return self

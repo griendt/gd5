@@ -251,7 +251,6 @@ class InstructionsTest(TestCase):
         raise NotImplementedError
 
     def test_order_of_chain_of_invasions(self):
-        self.skipTest("Chain of invasions not yet implemented")
         p1, p2, p3 = Player(name=name()), Player(name=name()), Player(name=name())
         t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
         iset = InstructionSet()
@@ -273,7 +272,6 @@ class InstructionsTest(TestCase):
         self.assertTerritoryHasTroops(t3, 4)
 
     def test_circular_invasions(self):
-        self.skipTest("Circular invasion detection not yet implemented")
         p1, p2, p3 = Player(name=name()), Player(name=name()), Player(name=name())
         t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
         iset = InstructionSet()
@@ -282,8 +280,10 @@ class InstructionsTest(TestCase):
         i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
         i3 = Instruction(issuer=p3, origin=t3, destination=t1, num_troops=4, instruction_set=iset)
 
-        for i in range(6):
+        for i in range(5):
             Troop(territory=t1)
+
+        for i in range(20):
             Troop(territory=t2)
             Troop(territory=t3)
 
@@ -292,13 +292,13 @@ class InstructionsTest(TestCase):
         self.assertTrue(i1.is_executed)
         self.assertTrue(i3.is_executed)
         self.assertTrue(i2.is_executed)
-        # First, player 1 slays 2 troops of player 2 with 4 units.
-        # Then, player 3 slays 2 troops of player 1, rendering territory 1 neutral.
-        # Finally, player 2 can only use 3 of its 4 remaining units to attack, slaying 1 troop of player 3.
-        # This means player 1 is neutral, and players 2 and 3 each have one unit remaining.
-        self.assertTerritoryHasTroops(t1, 0)
-        self.assertTerritoryHasTroops(t2, 1)
-        self.assertTerritoryHasTroops(t3, 1)
+        # First, player 1 slays 2 troops of player 2 with 4 units, leaving 18 in territory 2 and one in territory 1.
+        # Then, player 2 slays 2 troops of player 3, leaving 14 in territory 2 and 18 in territory 3.
+        # Finally, player 3 slays the remaining troop of player 1 and overtakes territory 1 with one troop.
+        self.assertTerritoryHasTroops(t2, 14)
+        self.assertTerritoryHasTroops(t3, 14)
+        self.assertTerritoryHasTroops(t1, 1)
+        self.assertTerritoryOwner(t1, p3)
 
 
 if __name__ == "__main__":

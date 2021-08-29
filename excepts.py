@@ -12,6 +12,11 @@ class InstructionAlreadyExecuting(InstructionException):
         super().__init__("Instruction already executing", *args, **kwargs)
 
 
+class UnwindingLoopedInstructions(InstructionException):
+    """This is a helper class to unwind a loop and not actually an exception."""
+    pass
+
+
 class InstructionAlreadyExecuted(InstructionException):
     def __init__(self, *args, **kwargs):
         super().__init__("Instruction already executed", *args, **kwargs)
