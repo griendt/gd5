@@ -113,10 +113,10 @@ class WorldTest(TestCase):
         for i in range(10):
             Troop(territory=territory)
 
-        self.assertEqual(set(), territory.take_unit(Troop, 0))
+        self.assertEqual([], territory.take_unit(Troop, 0))
 
         empty_territory = Territory()
-        self.assertEqual(set(), empty_territory.take_unit(Troop, 0))
+        self.assertEqual([], empty_territory.take_unit(Troop, 0))
 
     def test_taking_negative_units_is_rejected(self):
         territory = Territory()

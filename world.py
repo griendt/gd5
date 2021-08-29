@@ -67,7 +67,7 @@ class Territory:
     owner: Optional[Player] = None
     next_id = count(1)
     linked_territories: set[Territory] = field(default_factory=lambda: set())
-    units: set[Unit] = field(default_factory=lambda: set())
+    units: list[Unit] = field(default_factory=lambda: list())
 
     def __post_init__(self):
         if not self.id:
@@ -77,38 +77,35 @@ class Territory:
         self.owner = owner
         return self
 
-    def all(self, cls: type) -> set[T]:
+    def all(self, cls: type[Unit]) -> list[Unit]:
         """Convenience method."""
-        return {unit for unit in self.units if isinstance(unit, cls)}
+        return [unit for unit in self.units if isinstance(unit, cls)]
 
-    def take_unit(self, cls: T, amount: int = 1) -> T | set[T]:
+    def take_unit(self, cls: type[Unit], amount: int = 1) -> Unit | list[Unit]:
         """Select one or more random items from a type of unit."""
 
         if amount < 0:
             raise ValueError("A non-negative amount of units must be taken")
 
         if amount == 0:
-            return set()
+            return []
 
-        if amount > len(self.all(cls)):
+        available = self.all(cls)
+        if amount > len(available):
             raise InsufficientUnitsException(cls, amount)
 
-        sample, amount_taken = set(), 0
-        for unit in self.all(cls):
-            # If only one item is requested, simply return that item
-            # rather than building a set of items.
-            if amount == 1:
-                return unit
+        return available[:amount] if amount > 1 else available[0]
 
-            sample.add(unit)
-            amount_taken += 1
+    def remove_unit(self, cls: type[Unit], amount: int = 1) -> None:
+        """Remove one or more units of the given type."""
+        available = self.all(cls)
+        if amount > len(available):
+            raise InsufficientUnitsException(cls, amount)
 
-            if amount_taken == amount:
-                break
+        for unit in available[:amount]:
+            self.units.remove(unit)
 
-        return sample
-
-    def move_all(self, cls: T, destination: Territory) -> None:
+    def move_all(self, cls: type[Unit], destination: Territory) -> None:
         """Convenience method. Move all units of the
         given type to the destination territory."""
         for unit in self.all(cls):
@@ -149,7 +146,7 @@ class Unit:
         # Set the territory property and modify the territory
         # to contain this unit.
         self.territory = territory
-        territory.units.add(self)
+        territory.units.append(self)
 
     def remove(self):
         """Remove this unit (i.e. it is slain)."""
@@ -297,9 +294,9 @@ class Instruction:
         should_incur_penalty = not (self.mutual_invasion and self.mutual_invasion.is_executed)
         if should_incur_penalty:
             for _ in range(2):
-                self.origin.take_unit(Troop).remove()
+                self.origin.remove_unit(Troop)
                 if is_mutual_invasion:
-                    self.destination.take_unit(Troop).remove()
+                    self.destination.remove_unit(Troop)
                 self.num_troops_moved += 1
             logger.debug('Applied 2 troop penalty to the invader')
             if is_mutual_invasion:
@@ -309,8 +306,8 @@ class Instruction:
             # Remove a troop from both sides in an equal ratio, as long as this is possible
             # and we still have troops to move.
             if self.origin.all(Troop) and self.destination.all(Troop):
-                self.origin.take_unit(Troop).remove()
-                self.destination.take_unit(Troop).remove()
+                self.origin.remove_unit(Troop)
+                self.destination.remove_unit(Troop)
             else:
                 # Either army is completely exhausted.
                 # The battle ends.
