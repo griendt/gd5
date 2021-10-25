@@ -45,3 +45,8 @@ class InvalidInstructionType(InstructionException):
 class InstructionSetNotConstructible(Exception):
     def __init__(self, *args, **kwargs):
         super().__init__(f"Could not construct an InstructionSet from the given Instructions", *args, **kwargs)
+
+
+class InstructionNotExecuted(InstructionException):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Instruction expected to be executed, but was not", *args, **kwargs)

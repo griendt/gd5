@@ -15,6 +15,7 @@ from excepts import (
     InvalidInstructionType,
     UnwindingLoopedInstructions,
     InstructionSetNotConstructible,
+    InstructionNotExecuted,
 )
 from logger import logger
 
@@ -83,7 +84,7 @@ class Territory:
         """Convenience method."""
         return [unit for unit in self.units if isinstance(unit, cls)]
 
-    def take_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> Unit | list[Unit]:
+    def take_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> Unit | list[Unit] | None:
         """Select one or more random items from a type of unit."""
 
         if amount < 0:
@@ -101,17 +102,20 @@ class Territory:
             # However, we must check if there are any available units left, to prevent fetching units
             # from an empty list.
             if not available:
-                return []
+                return
 
             amount = len(available)
 
         return available[:amount] if amount > 1 else available[0]
 
-    def remove_unit(self, cls: type[Unit], amount: int = 1) -> None:
+    def remove_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> None:
         """Remove one or more units of the given type."""
         available = self.all(cls)
         if amount > len(available):
-            raise InsufficientUnitsException(cls, amount)
+            if not allow_insufficient_amount:
+                raise InsufficientUnitsException(cls, amount)
+
+            amount = len(available)
 
         for unit in available[:amount]:
             self.units.remove(unit)
@@ -196,7 +200,8 @@ class Turn:
         # sure those movements all occur first.
 
         self.instruction_sets = []
-        self.instruction_sets.append(InstructionSet(instructions=[i for i in instructions if i.origin.owner == i.destination.owner]))
+        if distributions := [i for i in instructions if i.origin.owner == i.destination.owner]:
+            self.instruction_sets.append(InstructionSet(instructions=distributions))
 
         while True:
             # Filter out instrunctions that have already been assigned to an InstructionSet.
@@ -206,6 +211,13 @@ class Turn:
             instruction_set = InstructionSet()
 
             for instruction in instructions:
+
+                if len(self.instruction_sets) >= 2:
+                    # A distribution and an invasion set have already been made. This means this Instruction
+                    # must depend on the outcomes of previous Instructions. Mark the Instruction as such, so that
+                    # the Instruction is allowed to be executed partially in case not all conditions are fulfilled.
+                    instruction.allow_insufficient_troops()
+
                 if not [i for i in instructions if i.issuer == instruction.issuer and i.destination == instruction.origin]:
                     # There is no Instruction by the same issuer that should come before this Instruction; i.e.
                     # there is no construction A -> B -> C where the current Instruction is B -> C. This means
@@ -224,6 +236,30 @@ class Turn:
 
             self.instruction_sets.append(instruction_set)
 
+    def execute(self) -> Turn:
+        turn_info = ''
+        for instruction_set in self.instruction_sets:
+            turn_info += '\n    '
+            for instruction in instruction_set.instructions:
+                turn_info += ' - ' + instruction.repr_arrow() + '\n    '
+        logger.info(f'[yellow]Processing turn with following instructions[/yellow]:{turn_info}')
+
+        for instruction_set in self.instruction_sets:
+            for instruction in instruction_set.instructions:
+                try:
+                    instruction.execute()
+                except InstructionAlreadyExecuted:
+                    # Another Instruction may have already caused this Instruction to be executed.
+                    # This is fine, as long as we check that all Instructions were executed at the end.
+                    pass
+
+            if [i for i in instruction_set.instructions if not i.is_executed]:
+                # All Instructions must be executed before moving on to the next InstructionSet.
+                raise InstructionNotExecuted
+
+        return self
+
+
 @dataclass
 class InstructionSet:
     """Instructions are to be invoked in conjunction with other instructions: they are not standalone.
@@ -239,9 +275,11 @@ class InstructionSet:
         if instruction in self.instructions:
             return
 
-        self.instructions.append(instruction)
         instruction.instruction_set = self
+        self.instructions.append(instruction)
+        self.set_instruction_type(instruction)
 
+    def set_instruction_type(self, instruction: Instruction) -> None:
         if instruction.issuer == instruction.destination.owner:
             instruction.instruction_type = InstructionType.DISTRIBUTION
         elif [
@@ -275,6 +313,7 @@ class InstructionSet:
         """Make sure that each Instruction is registered as being in this InstructionSet."""
         for instruction in self.instructions:
             instruction.instruction_set = self
+            self.set_instruction_type(instruction)
 
 
 class InstructionType(Enum):
@@ -317,7 +356,7 @@ class Instruction:
 
     def repr_arrow(self) -> str:
         return (
-                f'(id={self.origin.id}, {self.origin.owner.name}, troops={len(self.origin.all(Troop))})-[{self.num_troops - self.num_troops_moved}/{self.num_troops}]->' +
+                f'{{id={self.id}, issuer={self.issuer.name}}} (id={self.origin.id}, owner={self.origin.owner.name}, troops={len(self.origin.all(Troop))})-[{self.num_troops - self.num_troops_moved}/{self.num_troops}]->' +
                 f'(id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})'
         )
 
@@ -337,7 +376,7 @@ class Instruction:
             if self._allow_insufficient_troops:
                 logger.info(f'Insufficient troops ({troops_in_origin}) in origin; {self.num_troops} requested, but partial assignment is allowed')
             else:
-                logger.error(f'Invalid instruction: insufficient troops in origin territory: {troops_in_origin} requested, {self.num_troops} found')
+                logger.error(f'Invalid instruction: insufficient troops in origin territory: {self.num_troops} requested, {troops_in_origin} found')
                 raise InvalidInstruction("Insufficient troops in origin territory")
 
         logger.debug('Instruction is valid')
@@ -380,7 +419,7 @@ class Instruction:
                     logger.debug(f"The current instruction is not the one with lowest origin id; skipping")
                     raise UnwindingLoopedInstructions()
 
-            logger.info(f"Resolved superseding invasions for instruction: {self.repr_arrow()}")
+            logger.info(f"Resolved superseding invasions for instruction id {self.id}")
             for instruction in [instruction for instruction in self.instruction_set.instructions if instruction.is_executing and instruction != self]:
                 # The current instruction may now go through. If however this instruction was chosen because of a circular loop,
                 # then the other instructions in the loop are still set as executing, while they are no longer being executed.
@@ -391,26 +430,35 @@ class Instruction:
         is_mutual_invasion = self.mutual_invasion and not self.mutual_invasion.is_executed
         should_incur_penalty = not (self.mutual_invasion and self.mutual_invasion.is_executed)
         if should_incur_penalty:
-            for _ in range(2):
-                self.origin.remove_unit(Troop)
-                if is_mutual_invasion:
-                    self.destination.remove_unit(Troop)
-                self.num_troops_moved += 1
-            logger.debug('Applied 2 troop penalty to the invader')
+            origin_penalty = 0
+            destination_penalty = 0
+            try:
+                for _ in range(2):
+                    self.origin.remove_unit(Troop)
+                    origin_penalty += 1
+                    if is_mutual_invasion:
+                        self.destination.remove_unit(Troop)
+                        destination_penalty += 1
+                    self.num_troops_moved += 1
+            except InsufficientUnitsException as e:
+                if not self._allow_insufficient_troops:
+                    raise e
+
+            logger.debug(f'Applied {origin_penalty} troop penalty to the invader')
             if is_mutual_invasion:
-                logger.info('Also applied 2 troop penalty to the target due to mutual invasion')
+                logger.info(f'Also applied {destination_penalty} troop penalty to the target due to mutual invasion')
 
         while self.num_troops > self.num_troops_moved:
             # Remove a troop from both sides in an equal ratio, as long as this is possible
             # and we still have troops to move.
             if self.origin.all(Troop) and self.destination.all(Troop):
-                self.origin.remove_unit(Troop)
-                self.destination.remove_unit(Troop)
+                self.origin.remove_unit(Troop, 1, self._allow_insufficient_troops)
+                self.destination.remove_unit(Troop, 1, self._allow_insufficient_troops)
             else:
                 # Either army is completely exhausted.
                 # The battle ends.
                 logger.debug(
-                    f'At least one army is completely exhausted; the battle ends after {self.num_troops_moved} of {self.num_troops} invaders have been killed')
+                    f'At least one army is completely exhausted; the battle ends after {self.num_troops_moved} of requested {self.num_troops} invaders have been killed')
                 break
 
             self.num_troops_moved += 1
@@ -497,12 +545,28 @@ class Instruction:
     def resolve_expansion(self) -> None:
         """The destination is neutral or belongs to the same player. We will
         simply move the units from the origin to the destination and set the ownership."""
+        if self.destination.owner is not None and self.destination.owner != self.issuer:
+            # When this Instruction was originally created, it was considered an Expansion.
+            # However, other Instructions have occurred before this one, and the empty Territory
+            # has been taken by another Player. Therefore, we should now resolve this as an Invasion instead.
+            logger.debug(f'Movement to {self.destination.id} was originally an expansion, but a new owner ({self.destination.owner.name}) has been detected; resolving to invasion')
+            return self.resolve_invasion()
+
         logger.debug(f'Movement to {self.destination.id} is considered an expansion or relocation')
         self.destination.set_owner(self.issuer)
 
         while self.num_troops > self.num_troops_moved:
             # Note: we regard each troop here as being identical.
-            self.origin.take_unit(Troop).move(self.destination)
+            if (
+                (unit := self.origin.take_unit(Troop, 1, self._allow_insufficient_troops)) is None
+                and self._allow_insufficient_troops
+            ):
+                # Not all requested units could be moved, because there are too few available.
+                # However, this Instruction was marked as allowed to occur with insufficient troops, so this is OK.
+                # Stop moving more units and continue as usual.
+                break
+
+            unit.move(self.destination)
             self.num_troops_moved += 1
 
         logger.debug(f'Moved {self.num_troops_moved} troops')
@@ -513,13 +577,13 @@ class Instruction:
         if self.is_executing:
             raise InstructionAlreadyExecuting()
 
+        if self.is_executed:
+            raise InstructionAlreadyExecuted()
+
         logger.info(f'[blue]Executing[/blue]: {self.repr_arrow()}')
+
         self.is_executing = True
         self.assert_is_valid()
-
-        if self.is_executed:
-            logger.error('Instruction already executed')
-            raise InstructionAlreadyExecuted()
 
         if not self.instruction_set:
             logger.error('Instruction is not in InstructionSet')
@@ -531,7 +595,7 @@ class Instruction:
         if self.instruction_type in [InstructionType.EXPANSION, InstructionType.DISTRIBUTION]:
             """The destination is neutral or belongs to the same player. We will
             simply move the units from the origin to the destination and set the ownership."""
-            logger.debug('Destination is neutral or origin owner is the same as the destination owner')
+            logger.debug('Instruction is of type Expansion or Distribution')
             self.resolve_expansion()
         elif self.instruction_type == InstructionType.SKIRMISH:
             if not self.skirmishing_instructions:
@@ -554,7 +618,7 @@ class Instruction:
         self.is_executed = True
         self.is_executing = False
         logger.info(
-            f'[green]Finished execution[/green] with results: \n' +
+            f'[green]Finished execution[/green] of Instruction id {self.id} with results: \n' +
             f'    - origin     : (id={self.origin.id}, {self.origin.owner.name}, troops={len(self.origin.all(Troop))})\n' +
             f'    - destination: (id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})')
 

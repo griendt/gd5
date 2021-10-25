@@ -1,14 +1,14 @@
 import unittest
-from typing import Any
 
 from faker import Faker
 
 from excepts import InvalidInstruction, InstructionAlreadyExecuted
-from logger import logger
 from test.case import TestCase
 from world import Instruction, Territory, Player, Troop, InstructionSet, Turn
 
-name = Faker().name
+
+def name():
+    return Faker().name().split(' ')[0]
 
 
 class InstructionsTest(TestCase):
@@ -305,17 +305,45 @@ class InstructionsTest(TestCase):
         self.assertEqual({invasion, expansion}, set(turn.instruction_sets[1].instructions))
         self.assertEqual({conditional_invasion}, set(turn.instruction_sets[2].instructions))
 
+    def test_a_turn_can_be_processed(self):
+        p1, = self.generate_players(1)
+        t1, t2 = self.generate_territories(owners=[p1])
+        self.generate_troops({t1: 10})
+
+        turn = Turn([Instruction(issuer=p1, origin=t1, destination=t2, num_troops=3)]).execute()
+
+        self.assertTerritoryOwner(t2, p1)
+        self.assertTrue(turn.instruction_sets[0].instructions[0].is_executed)
+
+    def test_a_turn_processes_moves_in_the_right_order(self):
+        p1, p2 = self.generate_players()
+        t1, t2, t3, t4 = self.generate_territories(amount=4, owners=[p1, p2, p2])
+        self.generate_troops({t1: 10, t2: 4, t3: 10})
+
+        Turn([
+            Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4),
+            Instruction(issuer=p1, origin=t2, destination=t4, num_troops=4),
+            Instruction(issuer=p2, origin=t2, destination=t3, num_troops=1),
+            Instruction(issuer=p2, origin=t2, destination=t4, num_troops=2)]
+        ).execute()
+
+        self.assertTerritoryOwner(t1, p1)
+        # 10 minus 4 from invasion
+        self.assertTerritoryHasTroops(t1, 6)
+        # 4 minutes 2 and 1 from distributions, then overtaken with 1 troop left, then final troop dies in follow-up invasion
+        self.assertTerritoryHasTroops(t2, 0)
+        self.assertTerritoryOwner(t2, p1)
+        self.assertTerritoryHasTroops(t3, 11)   # 10 plus 1 from distribution
+        self.assertTerritoryOwner(t3, p2)
+        self.assertTerritoryHasTroops(t4, 2)    # 0 plus 2 from expansion
+        self.assertTerritoryOwner(t4, p2)
+
     def test_conditional_invasions_can_be_rendered_partial(self):
         # If a player tries to invade multiple territories deep, i.e. 1 -> 2 -> 3, the invasion from 2 to 3
         # may or may not be possible to execute fully, depending on how many units are left after invading 2.
         # Also note that in such a cycle by one player, we should explicitly NOT resolve these movements in opposite
         # order, since they are dependent on the opposite order!
         raise NotImplementedError
-
-    # TODO: add partially rendered invasion situation in case of a conditional, e.g. a player moving from 1 to 2 to 3 in one turn
-    #   and territory 2 was fortified before the first attack. However this also demands that non-attack moves were executed before invasions,
-    #   which is not yet implemented either. Note also that we should consider expansions to empty lands "attacks", because it could become
-    #   a skirmish. Considering expansions "attacks" means it is possible to decide before any resolutions which moves are "attacks" and which are not.
 
 
 if __name__ == "__main__":
