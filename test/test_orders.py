@@ -133,6 +133,16 @@ class InstructionsTest(TestCase):
         self.assertTerritoryOwner(t1, p1)
         self.assertTerritoryNeutral(t2)
 
+    def test_invasion_to_empty_land_still_costs_penalty(self):
+        p1, p2 = self.generate_players()
+        t1, t2 = self.generate_territories(owners=[p1, p2])
+        self.generate_troops({t1: 8, t2: 0})
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=7, instruction_set=InstructionSet()).execute()
+
+        # The troop penalty has been deducted from the 7 troops, but no further fighting took place.
+        self.assertTerritoryHasTroops(t2, 5)
+        self.assertTerritoryOwner(t2, p1)
+
     def test_mutual_invasion(self):
         p1, p2 = self.generate_players()
         t1, t2 = self.generate_territories(owners=[p1, p2])
