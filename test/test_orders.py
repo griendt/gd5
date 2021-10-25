@@ -287,10 +287,17 @@ class InstructionsTest(TestCase):
         # instruction 2 partially valid. This should be permitted.
         i1.execute()
 
+    def test_conditional_invasions_can_be_rendered_partial(self):
+        # If a player tries to invade multiple territories deep, i.e. 1 -> 2 -> 3, the invasion from 2 to 3
+        # may or may not be possible to execute fully, depending on how many units are left after invading 2.
+        # Also note that in such a cycle by one player, we should explicitly NOT resolve these movements in opposite
+        # order, since they are dependent on the opposite order!
+        raise NotImplementedError
 
     # TODO: add partially rendered invasion situation in case of a conditional, e.g. a player moving from 1 to 2 to 3 in one turn
-    #   and territory 2 was fortified before the first attack. However this also demands that non-invasion moves were executed before invasions,
-    #   which is not yet implemented either.
+    #   and territory 2 was fortified before the first attack. However this also demands that non-attack moves were executed before invasions,
+    #   which is not yet implemented either. Note also that we should consider expansions to empty lands "attacks", because it could become
+    #   a skirmish. Considering expansions "attacks" means it is possible to decide before any resolutions which moves are "attacks" and which are not.
 
 
 if __name__ == "__main__":
