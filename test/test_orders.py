@@ -49,6 +49,17 @@ class InstructionsTest(TestCase):
         with self.assertRaises(InvalidInstruction):
             order.assert_is_valid()
 
+    def test_moving_all_units_away_keeps_the_origin_owner_the_same(self):
+        p1, = self.generate_players(1)
+        t1, t2 = self.generate_territories(owners=[p1])
+        self.generate_troops({t1: 3})
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=3, instruction_set=InstructionSet()).execute()
+
+        self.assertTerritoryHasTroops(t1, 0)
+        self.assertTerritoryOwner(t1, p1)
+        self.assertTerritoryHasTroops(t2, 3)
+        self.assertTerritoryOwner(t2, p1)
+
     def test_instruction_with_all_available_units_is_valid(self):
         p1, = self.generate_players(1)
         t1, t2 = self.generate_territories(owners=[p1])
@@ -265,6 +276,7 @@ class InstructionsTest(TestCase):
         # However, due to the circular resolve, instruction 1 kills some troops from territory 2, rendering
         # instruction 2 partially valid. This should be permitted.
         i1.execute()
+
 
     # TODO: add partially rendered invasion situation in case of a conditional, e.g. a player moving from 1 to 2 to 3 in one turn
     #   and territory 2 was fortified before the first attack. However this also demands that non-invasion moves were executed before invasions,
