@@ -12,7 +12,9 @@ from excepts import (
     InstructionNotInInstructionSet,
     InstructionAlreadyExecuting,
     InstructionNoSkirmishingInstructions,
-    InvalidInstructionType, UnwindingLoopedInstructions
+    InvalidInstructionType,
+    UnwindingLoopedInstructions,
+    InstructionSetNotConstructible,
 )
 from logger import logger
 
@@ -182,6 +184,47 @@ class General(Unit):
 
 
 @dataclass
+class Turn:
+    instruction_sets: list[InstructionSet] = field(default_factory=lambda: list())
+
+    def __init__(self, instructions: list[Instruction]):
+        # Here, we will decide which instructions should go in which instruction set.
+        # In principle, there should be only one instruction set, unless there are Instructions
+        # that are _conditional_, i.e. may or may not be executed depending on the outcome of previous ones.
+        # Those instructions should, logically, be applied only in a later InstructionSet.
+        # In addition, all non-battle movements should be separated from the battle movements, so as to make
+        # sure those movements all occur first.
+
+        self.instruction_sets = []
+        self.instruction_sets.append(InstructionSet(instructions=[i for i in instructions if i.origin.owner == i.destination.owner]))
+
+        while True:
+            # Filter out instrunctions that have already been assigned to an InstructionSet.
+            if not (instructions := [i for i in instructions if not i.instruction_set]):
+                break
+
+            instruction_set = InstructionSet()
+
+            for instruction in instructions:
+                if not [i for i in instructions if i.issuer == instruction.issuer and i.destination == instruction.origin]:
+                    # There is no Instruction by the same issuer that should come before this Instruction; i.e.
+                    # there is no construction A -> B -> C where the current Instruction is B -> C. This means
+                    # we can safely add this Instruction to the current Instruction set. Any Instructions that
+                    # depend on the current Instruction can then be added to the next set.
+
+                    # FIXME: Fix the scenario in which there exists movements A -> B -> C, and A and C belong to
+                    #   the same player, and that player attempts to invade B and _then_ distribute to C.
+                    #   This should not be allowed!
+                    instruction_set.add_instruction(instruction)
+
+            if not instruction_set.instructions:
+                # For some reason, we could not add any Instructions to this InstructionSet. This would cause an
+                # infinite loop. This should never be able to occur!
+                raise InstructionSetNotConstructible
+
+            self.instruction_sets.append(instruction_set)
+
+@dataclass
 class InstructionSet:
     """Instructions are to be invoked in conjunction with other instructions: they are not standalone.
     Consider for example a skirmish: this is a combination of two or more Instructions whose result
@@ -197,6 +240,7 @@ class InstructionSet:
             return
 
         self.instructions.append(instruction)
+        instruction.instruction_set = self
 
         if instruction.issuer == instruction.destination.owner:
             instruction.instruction_type = InstructionType.DISTRIBUTION
@@ -244,9 +288,11 @@ class InstructionType(Enum):
 class Instruction:
     """A basic order is invoked by someone and concerns the movement
     of some units from an origin to a destination."""
+    next_id = count(1)
     issuer: Player
     origin: Territory
     destination: Territory
+    id: int = None
     instruction_set: InstructionSet = None
     instruction_type: InstructionType = None
     num_troops: int = 0
@@ -263,6 +309,11 @@ class Instruction:
         """Make sure to register this Instruction to its InstructionSet."""
         if self.instruction_set and self not in self.instruction_set.instructions:
             self.instruction_set.add_instruction(self)
+
+        self.id = next(self.next_id)
+
+    def __hash__(self):
+        return hash(self.id)
 
     def repr_arrow(self) -> str:
         return (

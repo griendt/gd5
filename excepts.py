@@ -1,5 +1,5 @@
 class InstructionException(Exception):
-    """Base class for exceptions that have to do with Orders."""
+    """Base class for exceptions that have to do with Instructions."""
     pass
 
 
@@ -40,3 +40,8 @@ class InstructionNoSkirmishingInstructions(InstructionException):
 class InvalidInstructionType(InstructionException):
     def __init__(self, instruction_type: str, *args, **kwargs):
         super().__init__(f"Instruction is of unexpected type: '{instruction_type}'", *args, **kwargs)
+
+
+class InstructionSetNotConstructible(Exception):
+    def __init__(self, *args, **kwargs):
+        super().__init__(f"Could not construct an InstructionSet from the given Instructions", *args, **kwargs)
