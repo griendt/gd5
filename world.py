@@ -81,7 +81,7 @@ class Territory:
         """Convenience method."""
         return [unit for unit in self.units if isinstance(unit, cls)]
 
-    def take_unit(self, cls: type[Unit], amount: int = 1) -> Unit | list[Unit]:
+    def take_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> Unit | list[Unit]:
         """Select one or more random items from a type of unit."""
 
         if amount < 0:
@@ -92,7 +92,16 @@ class Territory:
 
         available = self.all(cls)
         if amount > len(available):
-            raise InsufficientUnitsException(cls, amount)
+            if not allow_insufficient_amount:
+                raise InsufficientUnitsException(cls, amount)
+
+            # More units were requested than available, but this is specified to be OK.
+            # However, we must check if there are any available units left, to prevent fetching units
+            # from an empty list.
+            if not available:
+                return []
+
+            amount = len(available)
 
         return available[:amount] if amount > 1 else available[0]
 
@@ -248,6 +257,7 @@ class Instruction:
 
     skirmishing_instructions: list[Instruction] = None
     mutual_invasion: Instruction = None
+    _allow_insufficient_troops: bool = False
 
     def __post_init__(self):
         """Make sure to register this Instruction to its InstructionSet."""
@@ -260,6 +270,10 @@ class Instruction:
                 f'(id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})'
         )
 
+    def allow_insufficient_troops(self, value: bool = True) -> Instruction:
+        self._allow_insufficient_troops = value
+        return self
+
     def assert_is_valid(self) -> None:
         """Do some sanity checks to determine whether this Instruction makes sense.
         This method should be called before or during execution to prevent unwanted changes
@@ -268,9 +282,12 @@ class Instruction:
             logger.error('Invalid instruction: issuer is not the origin owner')
             raise InvalidInstruction("Issuer is not the origin owner")
 
-        if self.num_troops >= len({unit for unit in self.origin.all(Troop)}):
-            logger.error('Invalid instruction: insufficient troops in origin territory')
-            raise InvalidInstruction("Insufficient troops in origin territory")
+        if self.num_troops > (troops_in_origin := len({unit for unit in self.origin.all(Troop)})):
+            if self._allow_insufficient_troops:
+                logger.info(f'Insufficient troops ({troops_in_origin}) in origin; {self.num_troops} requested, but partial assignment is allowed')
+            else:
+                logger.error(f'Invalid instruction: insufficient troops in origin territory: {troops_in_origin} requested, {self.num_troops} found')
+                raise InvalidInstruction("Insufficient troops in origin territory")
 
         logger.debug('Instruction is valid')
 
@@ -279,7 +296,6 @@ class Instruction:
         By default we will assume no troops have yet been moved, but this may be altered by the
         *num_troops_moved* parameter. This is useful in case of skirmishes that wind up having
         a section that is to be parsed as an invasion."""
-        logger.debug(f'Resolving invasion: {self.repr_arrow()}')
 
         # First, we need to check whether the target territory is also moving to a (third) territory in this set.
         # If so, that invasion must be resolved first.
@@ -301,7 +317,6 @@ class Instruction:
 
                 if isinstance(exception, InstructionAlreadyExecuting):
                     # Only print some useful logging when first encountering the loop, to avoid clutter during unwinding.
-                    logger.info(f"Attempted to execute instruction, but got already executing error: {instruction.repr_arrow()}")
                     logger.info(f"Found circular set of instructions\n  - " + "\n  - ".join(
                         [instruction.repr_arrow() for instruction in self.instruction_set.instructions if instruction.is_executing]
                     ))
@@ -351,7 +366,7 @@ class Instruction:
 
         # Determine whether the attacker has units left. If so, move them to the target
         # territory and set the attacker as the new owner of the target.
-        if remainder := self.origin.take_unit(Troop, self.num_troops - self.num_troops_moved):
+        if remainder := self.origin.take_unit(Troop, self.num_troops - self.num_troops_moved, self._allow_insufficient_troops):
             # If the attacker has Troops remaining, move them to the target territory.
             self.destination.set_owner(self.origin.owner)
 
@@ -488,15 +503,18 @@ class Instruction:
         self.is_executed = True
         self.is_executing = False
         logger.info(
-            f'[green]Finished execution[/green] with destination territory result: (id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})')
+            f'[green]Finished execution[/green] with results: \n' +
+            f'    - origin     : (id={self.origin.id}, {self.origin.owner.name}, troops={len(self.origin.all(Troop))})\n' +
+            f'    - destination: (id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})')
 
         if self.is_part_of_loop:
-            instructions_from_target = [
+            if instructions_from_target := [
                 instruction for instruction in self.instruction_set.instructions
                 if instruction.origin == self.destination and not instruction.is_executed
-            ]
-            logger.info(f"This instruction was part of a loop; resolving instructions from target:\n  - " + "\n  - ".join([instruction.repr_arrow() for instruction in instructions_from_target]))
+            ]:
+                logger.info(f"This instruction was part of a loop; resolving instructions from target:\n  - " + "\n  - ".join([instruction.repr_arrow() for instruction in instructions_from_target]))
+
             for instruction in instructions_from_target:
-                instruction.execute()
+                instruction.allow_insufficient_troops().execute()
 
         return self
