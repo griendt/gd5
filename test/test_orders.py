@@ -41,7 +41,7 @@ class InstructionsTest(TestCase):
 
     def test_instruction_with_other_origin_owner_is_invalid(self):
         p1, p2 = self.generate_players()
-        t1, t2 = self.generate_territories(owners=[p1])
+        t1, t2 = self.generate_territories(owners=[p2])
         self.generate_troops({t1: 1})
 
         order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=1)
