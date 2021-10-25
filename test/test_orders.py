@@ -21,66 +21,70 @@ class InstructionsTest(TestCase):
     def assertTerritoryNeutral(self, territory: Territory) -> None:
         self.assertIsNone(territory.owner)
 
-    def test_instruction_with_other_origin_owner_is_invalid(self):
-        p1, p2 = Player(name=name()), Player(name=name())
-        t1, t2 = Territory(owner=p2), Territory()
+    def generate_players(self, amount: int = 2) -> list[Player]:
+        return [Player(name=name()) for _ in range(amount)]
 
-        Troop(territory=t1)
+    def generate_territories(self, amount: int = 2, owners: list[Player] = None) -> list[Territory]:
+        if owners is None:
+            owners = [None for _ in range(amount)]
+
+        if len(owners) < amount:
+            # Pad the owner list with Nones if necessary
+            owners += [None for _ in range(amount - len(owners))]
+
+        return [Territory(owner=owner) for owner in owners]
+
+    def generate_troops(self, troops_by_territory: dict[Territory, int]) -> None:
+        for territory, num_troops in troops_by_territory.items():
+            for i in range(num_troops):
+                Troop(territory=territory)
+
+    def test_instruction_with_other_origin_owner_is_invalid(self):
+        p1, p2 = self.generate_players()
+        t1, t2 = self.generate_territories(owners=[p1])
+        self.generate_troops({t1: 1})
+
         order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=1)
 
         with self.assertRaises(InvalidInstruction):
             order.assert_is_valid()
 
     def test_instruction_with_insufficient_units_is_invalid(self):
-        p1 = Player(name=name())
-        t1, t2 = Territory(owner=p1), Territory()
-
-        Troop(territory=t1)
+        p1, = self.generate_players(1)
+        t1, t2 = self.generate_territories(owners=[p1])
+        self.generate_troops({t1: 1})
         order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=1)
 
         with self.assertRaises(InvalidInstruction):
             order.assert_is_valid()
 
     def test_instruction_can_be_executed_only_once(self):
-        p1 = Player(name=name())
-        t1, t2 = Territory(owner=p1), Territory()
+        p1, = self.generate_players(1)
+        t1, t2 = self.generate_territories(owners=[p1])
+        self.generate_troops({t1: 3})
+
         iset = InstructionSet()
-
-        Troop(territory=t1)
-        Troop(territory=t1)
-        Troop(territory=t1)
-
         order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=1, instruction_set=iset).execute()
 
         with self.assertRaises(InstructionAlreadyExecuted):
             order.execute()
 
     def test_expansion_to_an_empty_territory(self):
-        p1 = Player(name=name())
-        t1, t2 = Territory(owner=p1), Territory()
-        iset = InstructionSet()
-
-        for i in range(10):
-            Troop(territory=t1)
-
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=6, instruction_set=iset).execute()
+        p1, = self.generate_players(1)
+        t1, t2 = self.generate_territories(owners=[p1])
+        self.generate_troops({t1: 10})
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=6, instruction_set=InstructionSet()).execute()
 
         self.assertTerritoryOwner(t2, p1)
         self.assertTerritoryHasTroops(t1, 4)
         self.assertTerritoryHasTroops(t2, 6)
 
     def test_distributing_to_friendly_territory_costs_no_units(self):
-        p1 = Player(name=name())
-        t1, t2 = Territory(owner=p1), Territory(owner=p1)
-        iset = InstructionSet()
+        p1, = self.generate_players(1)
+        t1, t2 = self.generate_territories(owners=[p1, p1])
+        self.generate_troops({t1: 10, t2: 6})
 
-        for i in range(10):
-            Troop(territory=t1)
-
-        for i in range(6):
-            Troop(territory=t2)
-
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=5, instruction_set=iset).execute()
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=5, instruction_set=InstructionSet()).execute()
 
         self.assertTerritoryHasTroops(t1, 5)
         self.assertTerritoryHasTroops(t2, 11)
@@ -88,17 +92,11 @@ class InstructionsTest(TestCase):
         self.assertTerritoryOwner(t2, p1)
 
     def test_simple_successful_invasion(self):
-        p1, p2 = Player(name=name()), Player(name=name())
-        t1, t2 = Territory(owner=p1), Territory(owner=p2)
-        iset = InstructionSet()
+        p1, p2 = self.generate_players()
+        t1, t2 = self.generate_territories(owners=[p1, p2])
+        self.generate_troops({t1: 9, t2: 5})
 
-        for i in range(9):
-            Troop(territory=t1)
-
-        for i in range(5):
-            Troop(territory=t2)
-
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=8, instruction_set=iset).execute()
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=8, instruction_set=InstructionSet()).execute()
 
         self.assertTerritoryHasTroops(t1, 1)
         self.assertTerritoryHasTroops(t2, 1)
@@ -106,17 +104,11 @@ class InstructionsTest(TestCase):
         self.assertTerritoryOwner(t2, p1)
 
     def test_invasion_can_render_the_target_neutral(self):
-        p1, p2 = Player(name=name()), Player(name=name())
-        t1, t2 = Territory(owner=p1), Territory(owner=p2)
-        iset = InstructionSet()
+        p1, p2 = self.generate_players()
+        t1, t2 = self.generate_territories(owners=[p1, p2])
+        self.generate_troops({t1: 6, t2: 3})
 
-        for i in range(6):
-            Troop(territory=t1)
-
-        for i in range(3):
-            Troop(territory=t2)
-
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=5, instruction_set=iset).execute()
+        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=5, instruction_set=InstructionSet()).execute()
 
         self.assertTerritoryHasTroops(t1, 1)
         self.assertTerritoryHasTroops(t2, 0)
@@ -124,32 +116,20 @@ class InstructionsTest(TestCase):
         self.assertTerritoryNeutral(t2)
 
     def test_mutual_invasion(self):
-        p1, p2 = Player(name=name()), Player(name=name())
-        t1, t2 = Territory(owner=p1), Territory(owner=p2)
+        p1, p2 = self.generate_players()
+        t1, t2 = self.generate_territories(owners=[p1, p2])
+        self.generate_troops({t1: 6, t2: 10})
+
         iset = InstructionSet()
         i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=3, instruction_set=iset)
         i2 = Instruction(issuer=p2, origin=t2, destination=t1, num_troops=3, instruction_set=iset)
 
-        for i in range(6):
-            Troop(territory=t1)
-
-        for i in range(10):
-            Troop(territory=t2)
-
         i1.execute()
 
-        # The first Instruction in the mutual invasion has triggered both Troop penalties.
-        # Hence, the target has 10 - 2 - (3-2) = 7 troops left.
-        self.assertTerritoryHasTroops(t1, 3)
-        self.assertTerritoryHasTroops(t2, 7)
-        self.assertTerritoryOwner(t1, p1)
-        self.assertTerritoryOwner(t2, p2)
-
-        # In executing the first order, the second order involved was not processed automatically!
-        self.assertFalse(i2.is_executed)
-
-        i2.execute()
-        # The Troop penalty should not occur another time; only the normal flow of the battle should continue.
+        # The first Instruction in the mutual invasion has triggered the other Instruction as well,
+        # due to the circular loop. Note that the Troop penalty should be incurred only once for each
+        # Territory, hence, the second territory should have 4 Troops remaining (10 - 2 - (3-2) - 3).
+        # The first territory is neutralized: 6 - 3 (invasion) - 3 (being invaded).
         self.assertTerritoryHasTroops(t1, 0)
         self.assertTerritoryHasTroops(t2, 4)
         self.assertTerritoryNeutral(t1)
@@ -157,21 +137,13 @@ class InstructionsTest(TestCase):
         self.assertTrue(i2.is_executed)
 
     def test_multiple_origin_skirmish_with_different_players(self):
-        p1, p2, p3 = Player(name=name()), Player(name=name()), Player(name=name())
-        t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
-        iset = InstructionSet()
+        p1, p2, p3 = self.generate_players(3)
+        t1, t2, t3 = self.generate_territories(owners=[p1, p2, p3])
+        self.generate_troops({t1: 6, t2: 4, t3: 10})
 
+        iset = InstructionSet()
         i1 = Instruction(issuer=p1, origin=t1, destination=t3, num_troops=5, instruction_set=iset)
         i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=2, instruction_set=iset)
-
-        for i in range(6):
-            Troop(territory=t1)
-
-        for i in range(4):
-            Troop(territory=t2)
-
-        for i in range(10):
-            Troop(territory=t3)
 
         i1.execute()
 
@@ -189,25 +161,15 @@ class InstructionsTest(TestCase):
         self.assertTrue(i2.is_executed)
 
     def test_triple_skirmish_with_three_players(self):
-        p1, p2, p3, p4 = Player(name=name()), Player(name=name()), Player(name=name()), Player(name=name())
-        t1, t2, t3, t4 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3), Territory(owner=p4)
+        p1, p2, p3, p4 = self.generate_players(4)
+        t1, t2, t3, t4 = self.generate_territories(owners=[p1, p2, p3, p4])
+        self.generate_troops({t1: 6, t2: 3, t3: 10, t4: 1})
+
         iset = InstructionSet()
 
         i1 = Instruction(issuer=p1, origin=t1, destination=t4, num_troops=5, instruction_set=iset)
         i2 = Instruction(issuer=p2, origin=t2, destination=t4, num_troops=2, instruction_set=iset)
         i3 = Instruction(issuer=p3, origin=t3, destination=t4, num_troops=9, instruction_set=iset)
-
-        for i in range(6):
-            Troop(territory=t1)
-
-        for i in range(3):
-            Troop(territory=t2)
-
-        for i in range(10):
-            Troop(territory=t3)
-
-        for i in range(1):
-            Troop(territory=t4)
 
         # FIXME: This test passes because we execute the instruction with the biggest army set.
         #   This should not be relevant.
@@ -230,38 +192,26 @@ class InstructionsTest(TestCase):
 
     def test_simple_invasion_from_multiple_origins(self):
         self.skipTest('Need to properly define the spec of multi-origin invasions')
-        p1, p2 = Player(name=name()), Player(name=name())
-        t1, t2, t3 = Territory(owner=p1), Territory(owner=p1), Territory(owner=p2)
-        iset = InstructionSet()
+        p1, p2 = self.generate_players()
+        t1, t2, t3 = self.generate_territories(owners=[p1, p1, p2])
+        self.generate_troops({t1: 3, t2: 4, t3: 20})
 
+        iset = InstructionSet()
         i1 = Instruction(issuer=p1, origin=t1, destination=t3, num_troops=2, instruction_set=iset)
         Instruction(issuer=p1, origin=t2, destination=t3, num_troops=3, instruction_set=iset)
-
-        for i in range(3):
-            Troop(territory=t1)
-
-        for i in range(4):
-            Troop(territory=t2)
-
-        for i in range(20):
-            Troop(territory=t3)
 
         i1.execute()
 
         raise NotImplementedError
 
     def test_order_of_chain_of_invasions(self):
-        p1, p2, p3 = Player(name=name()), Player(name=name()), Player(name=name())
-        t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
-        iset = InstructionSet()
+        p1, p2, p3 = self.generate_players(3)
+        t1, t2, t3 = self.generate_territories(owners=[p1, p2, p3])
+        self.generate_troops({t1: 6, t2: 6, t3: 6})
 
+        iset = InstructionSet()
         i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
         i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
-
-        for i in range(6):
-            Troop(territory=t1)
-            Troop(territory=t2)
-            Troop(territory=t3)
 
         i1.execute()
 
@@ -272,20 +222,14 @@ class InstructionsTest(TestCase):
         self.assertTerritoryHasTroops(t3, 4)
 
     def test_circular_invasions(self):
-        p1, p2, p3 = Player(name=name()), Player(name=name()), Player(name=name())
-        t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
+        p1, p2, p3 = self.generate_players(3)
+        t1, t2, t3 = self.generate_territories(owners=[p1, p2, p3])
+        self.generate_troops({t1: 5, t2: 20, t3: 20})
         iset = InstructionSet()
 
         i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
         i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
         i3 = Instruction(issuer=p3, origin=t3, destination=t1, num_troops=4, instruction_set=iset)
-
-        for i in range(5):
-            Troop(territory=t1)
-
-        for i in range(20):
-            Troop(territory=t2)
-            Troop(territory=t3)
 
         i1.execute()
 
@@ -301,18 +245,14 @@ class InstructionsTest(TestCase):
         self.assertTerritoryOwner(t1, p3)
 
     def test_invasion_can_be_rendered_partial_by_circular_invasions(self):
-        p1, p2, p3 = Player(name=name()), Player(name=name()), Player(name=name())
-        t1, t2, t3 = Territory(owner=p1), Territory(owner=p2), Territory(owner=p3)
-        iset = InstructionSet()
+        p1, p2, p3 = self.generate_players(3)
+        t1, t2, t3 = self.generate_territories(owners=[p1, p2, p3])
+        self.generate_troops({t1: 5, t2: 5, t3: 5})
 
+        iset = InstructionSet()
         i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
         i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
         i3 = Instruction(issuer=p3, origin=t3, destination=t1, num_troops=4, instruction_set=iset)
-
-        for i in range(5):
-            Troop(territory=t1)
-            Troop(territory=t2)
-            Troop(territory=t3)
 
         # At this point, all instructions are valid: 4 troops are being moved and 5 are in the territory.
         # However, due to the circular resolve, instruction 1 kills some troops from territory 2, rendering
@@ -322,6 +262,7 @@ class InstructionsTest(TestCase):
     # TODO: add partially rendered invasion situation in case of a conditional, e.g. a player moving from 1 to 2 to 3 in one turn
     #   and territory 2 was fortified before the first attack. However this also demands that non-invasion moves were executed before invasions,
     #   which is not yet implemented either.
+
 
 if __name__ == "__main__":
     unittest.main()
