@@ -6,7 +6,7 @@ from faker import Faker
 from excepts import InvalidInstruction, InstructionAlreadyExecuted
 from logger import logger
 from test.case import TestCase
-from world import Instruction, Territory, Player, Troop, InstructionSet
+from world import Instruction, Territory, Player, Troop, InstructionSet, Turn
 
 name = Faker().name
 
@@ -286,6 +286,24 @@ class InstructionsTest(TestCase):
         # However, due to the circular resolve, instruction 1 kills some troops from territory 2, rendering
         # instruction 2 partially valid. This should be permitted.
         i1.execute()
+
+    def test_a_turn_sorts_instructions_into_instruction_sets(self):
+        p1, p2 = self.generate_players()
+        t1, t2, t3, t4 = self.generate_territories(amount=4, owners=[p1, p2, p2])
+
+        invasion = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4)
+        conditional_invasion = Instruction(issuer=p1, origin=t2, destination=t4, num_troops=4)
+        distribution = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=1)
+        expansion = Instruction(issuer=p2, origin=t2, destination=t4, num_troops=2)
+
+        # Note that the conditional move is to be considered a battle, even though it is an _expansion_ at the time
+        # of issue, as t4 has no owner at that point in time.
+        turn = Turn([invasion, conditional_invasion, distribution, expansion])
+
+        self.assertEqual(3, len(turn.instruction_sets))
+        self.assertEqual({distribution}, set(turn.instruction_sets[0].instructions))
+        self.assertEqual({invasion, expansion}, set(turn.instruction_sets[1].instructions))
+        self.assertEqual({conditional_invasion}, set(turn.instruction_sets[2].instructions))
 
     def test_conditional_invasions_can_be_rendered_partial(self):
         # If a player tries to invade multiple territories deep, i.e. 1 -> 2 -> 3, the invasion from 2 to 3
