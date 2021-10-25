@@ -49,11 +49,18 @@ class InstructionsTest(TestCase):
         with self.assertRaises(InvalidInstruction):
             order.assert_is_valid()
 
+    def test_instruction_with_all_available_units_is_valid(self):
+        p1, = self.generate_players(1)
+        t1, t2 = self.generate_territories(owners=[p1])
+        self.generate_troops({t1: 3})
+        instruction = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=3)
+        instruction.assert_is_valid()
+
     def test_instruction_with_insufficient_units_is_invalid(self):
         p1, = self.generate_players(1)
         t1, t2 = self.generate_territories(owners=[p1])
         self.generate_troops({t1: 1})
-        order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=1)
+        order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=2)
 
         with self.assertRaises(InvalidInstruction):
             order.assert_is_valid()
