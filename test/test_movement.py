@@ -4,14 +4,14 @@ from faker import Faker
 
 from excepts import InvalidInstruction, InstructionAlreadyExecuted
 from test.case import TestCase
-from world import Instruction, Territory, Player, Troop, InstructionSet, Turn
+from world import Movement, Territory, Player, Troop, InstructionSet, Turn
 
 
 def name():
     return Faker().name().split(' ')[0]
 
 
-class InstructionsTest(TestCase):
+class MovementTest(TestCase):
     def assertTerritoryHasTroops(self, territory: Territory, num_troops: int) -> None:
         self.assertEqual(num_troops, len(territory.all(Troop)))
 
@@ -44,7 +44,7 @@ class InstructionsTest(TestCase):
         t1, t2 = self.generate_territories(owners=[p2])
         self.generate_troops({t1: 1})
 
-        order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=1)
+        order = Movement(issuer=p1, origin=t1, destination=t2, num_troops=1)
 
         with self.assertRaises(InvalidInstruction):
             order.assert_is_valid()
@@ -53,7 +53,7 @@ class InstructionsTest(TestCase):
         p1, = self.generate_players(1)
         t1, t2 = self.generate_territories(owners=[p1])
         self.generate_troops({t1: 3})
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=3, instruction_set=InstructionSet()).execute()
+        Movement(issuer=p1, origin=t1, destination=t2, num_troops=3, instruction_set=InstructionSet()).execute()
 
         self.assertTerritoryHasTroops(t1, 0)
         self.assertTerritoryOwner(t1, p1)
@@ -64,14 +64,14 @@ class InstructionsTest(TestCase):
         p1, = self.generate_players(1)
         t1, t2 = self.generate_territories(owners=[p1])
         self.generate_troops({t1: 3})
-        instruction = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=3)
+        instruction = Movement(issuer=p1, origin=t1, destination=t2, num_troops=3)
         instruction.assert_is_valid()
 
     def test_instruction_with_insufficient_units_is_invalid(self):
         p1, = self.generate_players(1)
         t1, t2 = self.generate_territories(owners=[p1])
         self.generate_troops({t1: 1})
-        order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=2)
+        order = Movement(issuer=p1, origin=t1, destination=t2, num_troops=2)
 
         with self.assertRaises(InvalidInstruction):
             order.assert_is_valid()
@@ -82,7 +82,7 @@ class InstructionsTest(TestCase):
         self.generate_troops({t1: 3})
 
         iset = InstructionSet()
-        order = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=1, instruction_set=iset).execute()
+        order = Movement(issuer=p1, origin=t1, destination=t2, num_troops=1, instruction_set=iset).execute()
 
         with self.assertRaises(InstructionAlreadyExecuted):
             order.execute()
@@ -91,7 +91,7 @@ class InstructionsTest(TestCase):
         p1, = self.generate_players(1)
         t1, t2 = self.generate_territories(owners=[p1])
         self.generate_troops({t1: 10})
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=6, instruction_set=InstructionSet()).execute()
+        Movement(issuer=p1, origin=t1, destination=t2, num_troops=6, instruction_set=InstructionSet()).execute()
 
         self.assertTerritoryOwner(t2, p1)
         self.assertTerritoryHasTroops(t1, 4)
@@ -102,7 +102,7 @@ class InstructionsTest(TestCase):
         t1, t2 = self.generate_territories(owners=[p1, p1])
         self.generate_troops({t1: 10, t2: 6})
 
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=5, instruction_set=InstructionSet()).execute()
+        Movement(issuer=p1, origin=t1, destination=t2, num_troops=5, instruction_set=InstructionSet()).execute()
 
         self.assertTerritoryHasTroops(t1, 5)
         self.assertTerritoryHasTroops(t2, 11)
@@ -114,7 +114,7 @@ class InstructionsTest(TestCase):
         t1, t2 = self.generate_territories(owners=[p1, p2])
         self.generate_troops({t1: 9, t2: 5})
 
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=8, instruction_set=InstructionSet()).execute()
+        Movement(issuer=p1, origin=t1, destination=t2, num_troops=8, instruction_set=InstructionSet()).execute()
 
         self.assertTerritoryHasTroops(t1, 1)
         self.assertTerritoryHasTroops(t2, 1)
@@ -126,7 +126,7 @@ class InstructionsTest(TestCase):
         t1, t2 = self.generate_territories(owners=[p1, p2])
         self.generate_troops({t1: 6, t2: 3})
 
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=5, instruction_set=InstructionSet()).execute()
+        Movement(issuer=p1, origin=t1, destination=t2, num_troops=5, instruction_set=InstructionSet()).execute()
 
         self.assertTerritoryHasTroops(t1, 1)
         self.assertTerritoryHasTroops(t2, 0)
@@ -137,7 +137,7 @@ class InstructionsTest(TestCase):
         p1, p2 = self.generate_players()
         t1, t2 = self.generate_territories(owners=[p1, p2])
         self.generate_troops({t1: 8, t2: 0})
-        Instruction(issuer=p1, origin=t1, destination=t2, num_troops=7, instruction_set=InstructionSet()).execute()
+        Movement(issuer=p1, origin=t1, destination=t2, num_troops=7, instruction_set=InstructionSet()).execute()
 
         # The troop penalty has been deducted from the 7 troops, but no further fighting took place.
         self.assertTerritoryHasTroops(t2, 5)
@@ -149,8 +149,8 @@ class InstructionsTest(TestCase):
         self.generate_troops({t1: 6, t2: 10})
 
         iset = InstructionSet()
-        i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=3, instruction_set=iset)
-        i2 = Instruction(issuer=p2, origin=t2, destination=t1, num_troops=3, instruction_set=iset)
+        i1 = Movement(issuer=p1, origin=t1, destination=t2, num_troops=3, instruction_set=iset)
+        i2 = Movement(issuer=p2, origin=t2, destination=t1, num_troops=3, instruction_set=iset)
 
         i1.execute()
 
@@ -170,8 +170,8 @@ class InstructionsTest(TestCase):
         self.generate_troops({t1: 6, t2: 4, t3: 10})
 
         iset = InstructionSet()
-        i1 = Instruction(issuer=p1, origin=t1, destination=t3, num_troops=5, instruction_set=iset)
-        i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=2, instruction_set=iset)
+        i1 = Movement(issuer=p1, origin=t1, destination=t3, num_troops=5, instruction_set=iset)
+        i2 = Movement(issuer=p2, origin=t2, destination=t3, num_troops=2, instruction_set=iset)
 
         i1.execute()
 
@@ -195,9 +195,9 @@ class InstructionsTest(TestCase):
 
         iset = InstructionSet()
 
-        i1 = Instruction(issuer=p1, origin=t1, destination=t4, num_troops=5, instruction_set=iset)
-        i2 = Instruction(issuer=p2, origin=t2, destination=t4, num_troops=2, instruction_set=iset)
-        i3 = Instruction(issuer=p3, origin=t3, destination=t4, num_troops=9, instruction_set=iset)
+        i1 = Movement(issuer=p1, origin=t1, destination=t4, num_troops=5, instruction_set=iset)
+        i2 = Movement(issuer=p2, origin=t2, destination=t4, num_troops=2, instruction_set=iset)
+        i3 = Movement(issuer=p3, origin=t3, destination=t4, num_troops=9, instruction_set=iset)
 
         # FIXME: This test passes because we execute the instruction with the biggest army set.
         #   This should not be relevant.
@@ -225,8 +225,8 @@ class InstructionsTest(TestCase):
         self.generate_troops({t1: 3, t2: 4, t3: 20})
 
         iset = InstructionSet()
-        i1 = Instruction(issuer=p1, origin=t1, destination=t3, num_troops=2, instruction_set=iset)
-        Instruction(issuer=p1, origin=t2, destination=t3, num_troops=3, instruction_set=iset)
+        i1 = Movement(issuer=p1, origin=t1, destination=t3, num_troops=2, instruction_set=iset)
+        Movement(issuer=p1, origin=t2, destination=t3, num_troops=3, instruction_set=iset)
 
         i1.execute()
 
@@ -238,8 +238,8 @@ class InstructionsTest(TestCase):
         self.generate_troops({t1: 6, t2: 6, t3: 6})
 
         iset = InstructionSet()
-        i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
-        i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
+        i1 = Movement(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
+        i2 = Movement(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
 
         i1.execute()
 
@@ -255,9 +255,9 @@ class InstructionsTest(TestCase):
         self.generate_troops({t1: 5, t2: 20, t3: 20})
         iset = InstructionSet()
 
-        i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
-        i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
-        i3 = Instruction(issuer=p3, origin=t3, destination=t1, num_troops=4, instruction_set=iset)
+        i1 = Movement(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
+        i2 = Movement(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
+        i3 = Movement(issuer=p3, origin=t3, destination=t1, num_troops=4, instruction_set=iset)
 
         i1.execute()
 
@@ -278,9 +278,9 @@ class InstructionsTest(TestCase):
         self.generate_troops({t1: 5, t2: 5, t3: 5})
 
         iset = InstructionSet()
-        i1 = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
-        i2 = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
-        i3 = Instruction(issuer=p3, origin=t3, destination=t1, num_troops=4, instruction_set=iset)
+        i1 = Movement(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
+        i2 = Movement(issuer=p2, origin=t2, destination=t3, num_troops=4, instruction_set=iset)
+        i3 = Movement(issuer=p3, origin=t3, destination=t1, num_troops=4, instruction_set=iset)
 
         # At this point, all instructions are valid: 4 troops are being moved and 5 are in the territory.
         # However, due to the circular resolve, instruction 1 kills some troops from territory 2, rendering
@@ -291,10 +291,10 @@ class InstructionsTest(TestCase):
         p1, p2 = self.generate_players()
         t1, t2, t3, t4 = self.generate_territories(amount=4, owners=[p1, p2, p2])
 
-        invasion = Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4)
-        conditional_invasion = Instruction(issuer=p1, origin=t2, destination=t4, num_troops=4)
-        distribution = Instruction(issuer=p2, origin=t2, destination=t3, num_troops=1)
-        expansion = Instruction(issuer=p2, origin=t2, destination=t4, num_troops=2)
+        invasion = Movement(issuer=p1, origin=t1, destination=t2, num_troops=4)
+        conditional_invasion = Movement(issuer=p1, origin=t2, destination=t4, num_troops=4)
+        distribution = Movement(issuer=p2, origin=t2, destination=t3, num_troops=1)
+        expansion = Movement(issuer=p2, origin=t2, destination=t4, num_troops=2)
 
         # Note that the conditional move is to be considered a battle, even though it is an _expansion_ at the time
         # of issue, as t4 has no owner at that point in time.
@@ -310,7 +310,7 @@ class InstructionsTest(TestCase):
         t1, t2 = self.generate_territories(owners=[p1])
         self.generate_troops({t1: 10})
 
-        turn = Turn([Instruction(issuer=p1, origin=t1, destination=t2, num_troops=3)]).execute()
+        turn = Turn([Movement(issuer=p1, origin=t1, destination=t2, num_troops=3)]).execute()
 
         self.assertTerritoryOwner(t2, p1)
         self.assertTrue(turn.instruction_sets[0].instructions[0].is_executed)
@@ -321,10 +321,10 @@ class InstructionsTest(TestCase):
         self.generate_troops({t1: 10, t2: 4, t3: 10})
 
         Turn([
-            Instruction(issuer=p1, origin=t1, destination=t2, num_troops=4),
-            Instruction(issuer=p1, origin=t2, destination=t4, num_troops=4),
-            Instruction(issuer=p2, origin=t2, destination=t3, num_troops=1),
-            Instruction(issuer=p2, origin=t2, destination=t4, num_troops=2)]
+            Movement(issuer=p1, origin=t1, destination=t2, num_troops=4),
+            Movement(issuer=p1, origin=t2, destination=t4, num_troops=4),
+            Movement(issuer=p2, origin=t2, destination=t3, num_troops=1),
+            Movement(issuer=p2, origin=t2, destination=t4, num_troops=2)]
         ).execute()
 
         self.assertTerritoryOwner(t1, p1)
@@ -337,14 +337,6 @@ class InstructionsTest(TestCase):
         self.assertTerritoryOwner(t3, p2)
         self.assertTerritoryHasTroops(t4, 2)    # 0 plus 2 from expansion
         self.assertTerritoryOwner(t4, p2)
-
-    def test_conditional_invasions_can_be_rendered_partial(self):
-        # If a player tries to invade multiple territories deep, i.e. 1 -> 2 -> 3, the invasion from 2 to 3
-        # may or may not be possible to execute fully, depending on how many units are left after invading 2.
-        # Also note that in such a cycle by one player, we should explicitly NOT resolve these movements in opposite
-        # order, since they are dependent on the opposite order!
-        raise NotImplementedError
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -191,7 +191,7 @@ class General(Unit):
 class Turn:
     instruction_sets: list[InstructionSet] = field(default_factory=lambda: list())
 
-    def __init__(self, instructions: list[Instruction]):
+    def __init__(self, instructions: list[Movement]):
         # Here, we will decide which instructions should go in which instruction set.
         # In principle, there should be only one instruction set, unless there are Instructions
         # that are _conditional_, i.e. may or may not be executed depending on the outcome of previous ones.
@@ -267,9 +267,9 @@ class InstructionSet:
     is altered by each other's existence. This class orchestrates this behaviour and allows Instructions
     to see which other Instructions are relevant for its own execution."""
 
-    instructions: list[Instruction] = field(default_factory=lambda: list())
+    instructions: list[Movement] = field(default_factory=lambda: list())
 
-    def add_instruction(self, instruction: Instruction) -> None:
+    def add_instruction(self, instruction: Movement) -> None:
         """The preferred way to add instructions. This is because the InstructionSet may hydrate Instructions with
         extra info, such as whether it is a skirmish and/or invasion and so on."""
         if instruction in self.instructions:
@@ -279,7 +279,7 @@ class InstructionSet:
         self.instructions.append(instruction)
         self.set_instruction_type(instruction)
 
-    def set_instruction_type(self, instruction: Instruction) -> None:
+    def set_instruction_type(self, instruction: Movement) -> None:
         if instruction.issuer == instruction.destination.owner:
             instruction.instruction_type = InstructionType.DISTRIBUTION
         elif [
@@ -323,33 +323,44 @@ class InstructionType(Enum):
     SKIRMISH = 4
 
 
-@dataclass
 class Instruction:
+    next_id = count(1)
+    id: int
+    issuer: Player
+    is_executing: bool = False
+    is_executed: bool = False
+
+    def __init__(self, issuer: Player):
+        self.issuer = issuer
+        self.id = next(self.next_id)
+
+
+class Movement(Instruction):
     """A basic order is invoked by someone and concerns the movement
     of some units from an origin to a destination."""
-    next_id = count(1)
-    issuer: Player
     origin: Territory
     destination: Territory
-    id: int = None
     instruction_set: InstructionSet = None
     instruction_type: InstructionType = None
     num_troops: int = 0
     num_troops_moved: int = 0
-    is_executing: bool = False
-    is_executed: bool = False
     is_part_of_loop: bool = False
 
-    skirmishing_instructions: list[Instruction] = None
-    mutual_invasion: Instruction = None
+    skirmishing_instructions: list[Movement] = None
+    mutual_invasion: Movement = None
     _allow_insufficient_troops: bool = False
 
-    def __post_init__(self):
-        """Make sure to register this Instruction to its InstructionSet."""
+    def __init__(self, issuer: Player, origin: Territory, destination: Territory, num_troops: int = 0, instruction_set: InstructionSet = None):
+        super().__init__(issuer=issuer)
+        self.origin = origin
+        self.destination = destination
+        self.num_troops = num_troops
+        self.num_troops_moved = 0
+        self.instruction_set = instruction_set
+
+        # Make sure to register this Instruction to its InstructionSet.
         if self.instruction_set and self not in self.instruction_set.instructions:
             self.instruction_set.add_instruction(self)
-
-        self.id = next(self.next_id)
 
     def __hash__(self):
         return hash(self.id)
@@ -360,7 +371,7 @@ class Instruction:
                 f'(id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})'
         )
 
-    def allow_insufficient_troops(self, value: bool = True) -> Instruction:
+    def allow_insufficient_troops(self, value: bool = True) -> Movement:
         self._allow_insufficient_troops = value
         return self
 
@@ -481,7 +492,7 @@ class Instruction:
             # turn the destination neutral.
             self.destination.owner = None
 
-    def resolve_skirmish(self, skirmishes: list[Instruction]) -> None:
+    def resolve_skirmish(self, skirmishes: list[Movement]) -> None:
         """This is a skirmish with other Instructions. Right now we're assuming each Instruction
         belongs to a different player, and hence they can be treated as individual armies. Note that two
         Instructions with the same destination can belong to the same player and they will be treated as
@@ -571,7 +582,7 @@ class Instruction:
 
         logger.debug(f'Moved {self.num_troops_moved} troops')
 
-    def execute(self) -> Instruction:
+    def execute(self) -> Movement:
         """Execute the order. This will alter the territories it belongs to."""
 
         if self.is_executing:
