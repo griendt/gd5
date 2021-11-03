@@ -327,12 +327,17 @@ class Instruction:
     next_id = count(1)
     id: int
     issuer: Player
+
+    instruction_set: InstructionSet = None
+    instruction_type: InstructionType = None
     is_executing: bool = False
     is_executed: bool = False
 
-    def __init__(self, issuer: Player):
+    def __init__(self, issuer: Player, instruction_set: InstructionSet = None, instruction_type: InstructionType = None):
         self.issuer = issuer
         self.id = next(self.next_id)
+        self.instruction_set = instruction_set
+        self.instruction_type = instruction_type
 
 
 class Movement(Instruction):
@@ -340,8 +345,6 @@ class Movement(Instruction):
     of some units from an origin to a destination."""
     origin: Territory
     destination: Territory
-    instruction_set: InstructionSet = None
-    instruction_type: InstructionType = None
     skirmishing_movements: list[Movement] = None
     mutual_invasion: Movement = None
 
@@ -351,12 +354,11 @@ class Movement(Instruction):
     _num_troops_moved: int = 0
 
     def __init__(self, issuer: Player, origin: Territory, destination: Territory, num_troops: int = 0, instruction_set: InstructionSet = None):
-        super().__init__(issuer=issuer)
+        super().__init__(issuer=issuer, instruction_set=instruction_set)
         self.origin = origin
         self.destination = destination
         self._num_troops = num_troops
         self._num_troops_moved = 0
-        self.instruction_set = instruction_set
 
         # Make sure to register this Instruction to its InstructionSet.
         if self.instruction_set and self not in self.instruction_set.instructions:
