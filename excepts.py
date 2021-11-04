@@ -50,3 +50,18 @@ class InstructionSetNotConstructible(Exception):
 class InstructionNotExecuted(InstructionException):
     def __init__(self, *args, **kwargs):
         super().__init__("Instruction expected to be executed, but was not", *args, **kwargs)
+
+
+class IssuerAlreadyPresentInWorld(InstructionException):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Issuer is already present in the world", *args, **kwargs)
+
+
+class AdjacentTerritoryNotEmpty(InstructionException):
+    def __init__(self, *args, **kwargs):
+        super().__init__("An adjacent territory contains units", *args, **kwargs)
+
+
+class TerritoryNotNeutral(InstructionException):
+    def __init__(self, *args, **kwargs):
+        super().__init__("The territory is not neutral", *args, **kwargs)
