@@ -340,6 +340,13 @@ class Instruction:
         self.instruction_type = instruction_type
 
 
+class CreateHeadquarter(Instruction):
+    territory: Territory
+
+    #def __init__(self, issuer: Player, territory: Territory):
+        #if
+
+
 class Movement(Instruction):
     """A basic order is invoked by someone and concerns the movement
     of some units from an origin to a destination."""
