@@ -6,7 +6,7 @@ from world import Movement, InstructionSet, Turn
 
 
 class MovementTest(TestCase):
-    def test_instruction_with_other_origin_owner_is_invalid(self):
+    def test_movement_with_other_origin_owner_is_invalid(self):
         p1, p2 = self.generate_players()
         t1, t2 = self.generate_territories(owners=[p2])
         self.generate_troops({t1: 1})
@@ -27,14 +27,14 @@ class MovementTest(TestCase):
         self.assertTerritoryHasTroops(t2, 3)
         self.assertTerritoryOwner(t2, p1)
 
-    def test_instruction_with_all_available_units_is_valid(self):
+    def test_movement_with_all_available_units_is_valid(self):
         p1, = self.generate_players(1)
         t1, t2 = self.generate_territories(owners=[p1])
         self.generate_troops({t1: 3})
         instruction = Movement(issuer=p1, origin=t1, destination=t2, num_troops=3)
         instruction.assert_is_valid()
 
-    def test_instruction_with_insufficient_units_is_invalid(self):
+    def test_movement_with_insufficient_units_is_invalid(self):
         p1, = self.generate_players(1)
         t1, t2 = self.generate_territories(owners=[p1])
         self.generate_troops({t1: 1})
@@ -43,7 +43,16 @@ class MovementTest(TestCase):
         with self.assertRaises(InvalidInstruction):
             order.assert_is_valid()
 
-    def test_instruction_can_be_executed_only_once(self):
+    def test_movement_to_non_adjacent_territory_is_invalid(self):
+        p1, = self.generate_players(1)
+        t1, t2 = self.generate_territories(owners=[p1], complete_graph=False)
+        self.generate_troops({t1: 1})
+        order = Movement(issuer=p1, origin=t1, destination=t2, num_troops=2)
+
+        with self.assertRaises(InvalidInstruction):
+            order.assert_is_valid()
+
+    def test_movement_can_be_executed_only_once(self):
         p1, = self.generate_players(1)
         t1, t2 = self.generate_territories(owners=[p1])
         self.generate_troops({t1: 3})
