@@ -25,12 +25,18 @@ T = TypeVar('T')
 @dataclass
 class Player:
     name: str
+
+    id: int = None
+    next_id = count(1)
     description: Optional[str] = ""
     influence_points: int = 0
 
+    def __post_init__(self):
+        self.id = next(self.next_id)
+
     def __hash__(self):
         # Names are static and hence can be used as a hash safely
-        return hash(self.name)
+        return hash(self.id)
 
     def __setattr__(self, key, value):
         if key == "name" and hasattr(self, "name"):
