@@ -105,8 +105,6 @@ if __name__ == '__main__':
     }
 
     world_map.territories = {territory.id: territory for territory in territories}
-    world_map.link_territories_by_id(1, 2)
-    world_map.link_territories_by_id(1, 3)
 
     print(render_struct(aluce))
     print(render_struct(psycho17))
