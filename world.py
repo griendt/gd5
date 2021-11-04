@@ -303,7 +303,7 @@ class Turn:
                         # This is fine, as long as we check that all Instructions were executed at the end.
                         pass
 
-                if [i for i in instruction_set.instructions if not i.is_executed]:
+                if any([not instruction.is_executed for instruction in instruction_set.instructions]):
                     # All Instructions must be executed before moving on to the next InstructionSet.
                     raise InstructionNotExecuted
 
