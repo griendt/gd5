@@ -38,7 +38,7 @@ class TestCase(unittest.TestCase):
 
         raise AssertionError(f"No construct of type {construct_type} found in territory")
 
-    def generate_territories(self, amount: int = 2, owners: list[Player] = None) -> list[Territory]:
+    def generate_territories(self, amount: int = 2, owners: list[Player] = None, complete_graph=True) -> list[Territory]:
         if owners is None:
             owners = [None for _ in range(amount)]
 
@@ -49,6 +49,12 @@ class TestCase(unittest.TestCase):
         # Register the territories into the world.
         for territory in (territories := [Territory(owner=owner) for owner in owners]):
             self.world.territories[territory.id] = territory
+
+        # Link all territories together
+        if complete_graph:
+            for territory_1 in territories:
+                for territory_2 in territories:
+                    territory_1.link(territory_2)
 
         return territories
 

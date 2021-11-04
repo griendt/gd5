@@ -401,6 +401,7 @@ class CreateHeadquarter(Instruction):
 
         return self
 
+
 class Movement(Instruction):
     """A basic order is invoked by someone and concerns the movement
     of some units from an origin to a destination."""
@@ -452,6 +453,9 @@ class Movement(Instruction):
             else:
                 logger.error(f'Invalid instruction: insufficient troops in origin territory: {self._num_troops} requested, {troops_in_origin} found')
                 raise InvalidInstruction("Insufficient troops in origin territory")
+
+        if self.destination not in self.origin.linked_territories:
+            raise InvalidInstruction("Destination is not linked to the origin")
 
         logger.debug('Instruction is valid')
 
