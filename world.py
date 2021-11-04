@@ -75,6 +75,7 @@ class Territory:
     next_id = count(1)
     linked_territories: set[Territory] = field(default_factory=lambda: set())
     units: list[Unit] = field(default_factory=lambda: list())
+    constructs: set[Construct] = field(default_factory=lambda: set())
 
     def __post_init__(self):
         if not self.id:
@@ -138,8 +139,8 @@ class Territory:
             unit.move(destination)
 
     def is_empty(self) -> bool:
-        """Whether the territory is considered empty (devoid of units)."""
-        return not self.units
+        """Whether the territory is considered empty (devoid of units and constructs)."""
+        return not self.units and not self.constructs
 
     def is_neutral(self) -> bool:
         """Whether this territory is considered neutral (not belonging to any player).
@@ -332,6 +333,18 @@ class InstructionType(Enum):
     INVASION = 3
     SKIRMISH = 4
     CREATE_HEADQUARTER = 5
+
+
+class Construct:
+    territory: Territory
+
+    def __init__(self, territory: Territory):
+        self.territory = territory
+        self.territory.constructs.add(self)
+
+
+class HeadQuarter(Construct):
+    pass
 
 
 class Instruction:

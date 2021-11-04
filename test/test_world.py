@@ -4,7 +4,7 @@ from faker import Faker
 
 from excepts import InsufficientUnitsException
 from test.case import TestCase
-from world import World, Territory, LandBiome, Player, Troop, Unit, General, Cavalry
+from world import World, Territory, LandBiome, Player, Troop, Unit, General, Cavalry, Construct
 
 name = Faker().name
 
@@ -48,6 +48,12 @@ class WorldTest(TestCase):
         can have no owner -- not even Barbarian."""
         t = Territory()
         troop = Troop(territory=t)
+
+        self.assertFalse(t.is_empty())
+
+    def test_a_territory_with_a_construct_is_not_empty(self):
+        t = Territory()
+        Construct(territory=t)
 
         self.assertFalse(t.is_empty())
 
