@@ -25,6 +25,12 @@ from logger import logger
 
 T = TypeVar('T')
 
+# Amount of troops to start out with when entering the world.
+NUM_TROOPS_START = 5
+
+# Amount of troops penalty by default when invading another player's territory.
+NUM_INVASION_PENALTY = 2
+
 
 @dataclass
 class Player:
@@ -376,7 +382,7 @@ class Construct:
         self.territory.constructs.add(self)
 
 
-class HeadQuarter(Construct):
+class Headquarter(Construct):
     pass
 
 
@@ -428,8 +434,8 @@ class CreateHeadquarter(Instruction):
     def execute(self) -> CreateHeadquarter:
         self.territory.owner = self.issuer
 
-        HeadQuarter(territory=self.territory)
-        for _ in range(5):
+        Headquarter(territory=self.territory)
+        for _ in range(NUM_TROOPS_START):
             Troop(territory=self.territory)
 
         return self
@@ -544,7 +550,7 @@ class Movement(Instruction):
             origin_penalty = 0
             destination_penalty = 0
             try:
-                for _ in range(2):
+                for _ in range(NUM_INVASION_PENALTY):
                     self.origin.remove_unit(Troop)
                     origin_penalty += 1
                     if is_mutual_invasion:

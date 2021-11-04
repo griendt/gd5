@@ -2,7 +2,7 @@ import unittest
 
 from excepts import IssuerAlreadyPresentInWorld, AdjacentTerritoryNotEmpty, TerritoryNotNeutral
 from test.case import TestCase
-from world import CreateHeadquarter, HeadQuarter
+from world import CreateHeadquarter, Headquarter, NUM_TROOPS_START
 
 
 class SpawnHeadquarterTest(TestCase):
@@ -44,8 +44,8 @@ class SpawnHeadquarterTest(TestCase):
         CreateHeadquarter(issuer=player, territory=t1, world=self.world).execute()
 
         self.assertTerritoryOwner(t1, player)
-        self.assertTerritoryHasTroops(t1, 5)
-        self.assertTerritoryHasConstruct(t1, HeadQuarter)
+        self.assertTerritoryHasTroops(t1, NUM_TROOPS_START)
+        self.assertTerritoryHasConstruct(t1, Headquarter)
 
 
 if __name__ == "__main__":
