@@ -366,6 +366,9 @@ class Instruction:
     def assert_is_valid(self) -> None:
         raise NotImplementedError
 
+    def execute(self) -> Instruction:
+        raise NotImplementedError
+
 
 class CreateHeadquarter(Instruction):
     territory: Territory
@@ -389,6 +392,14 @@ class CreateHeadquarter(Instruction):
             if not territory.is_empty():
                 raise AdjacentTerritoryNotEmpty()
 
+    def execute(self) -> CreateHeadquarter:
+        self.territory.owner = self.issuer
+
+        HeadQuarter(territory=self.territory)
+        for _ in range(5):
+            Troop(territory=self.territory)
+
+        return self
 
 class Movement(Instruction):
     """A basic order is invoked by someone and concerns the movement

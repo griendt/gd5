@@ -3,7 +3,7 @@ from typing import Any
 
 from logger import logger
 from test import generate_name
-from world import Territory, Troop, Player, World
+from world import Territory, Troop, Player, World, Construct
 
 
 class TestCase(unittest.TestCase):
@@ -30,6 +30,13 @@ class TestCase(unittest.TestCase):
 
     def assertTerritoryNeutral(self, territory: Territory) -> None:
         self.assertIsNone(territory.owner)
+
+    def assertTerritoryHasConstruct(self, territory: Territory, construct_type: type[Construct]):
+        for construct in territory.constructs:
+            if isinstance(construct, construct_type):
+                return
+
+        raise AssertionError(f"No construct of type {construct_type} found in territory")
 
     def generate_territories(self, amount: int = 2, owners: list[Player] = None) -> list[Territory]:
         if owners is None:
