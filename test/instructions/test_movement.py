@@ -7,8 +7,29 @@ from test.case import TestCase
 from world import Movement, Territory, Player, Troop, InstructionSet, Turn
 
 
-def name():
+def generate_name():
     return Faker().name().split(' ')[0]
+
+
+def generate_players(amount: int = 2) -> list[Player]:
+    return [Player(name=generate_name()) for _ in range(amount)]
+
+
+def generate_territories(amount: int = 2, owners: list[Player] = None) -> list[Territory]:
+    if owners is None:
+        owners = [None for _ in range(amount)]
+
+    if len(owners) < amount:
+        # Pad the owner list with Nones if necessary
+        owners += [None for _ in range(amount - len(owners))]
+
+    return [Territory(owner=owner) for owner in owners]
+
+
+def generate_troops(troops_by_territory: dict[Territory, int]) -> None:
+    for territory, num_troops in troops_by_territory.items():
+        for i in range(num_troops):
+            Troop(territory=territory)
 
 
 class MovementTest(TestCase):
@@ -21,28 +42,10 @@ class MovementTest(TestCase):
     def assertTerritoryNeutral(self, territory: Territory) -> None:
         self.assertIsNone(territory.owner)
 
-    def generate_players(self, amount: int = 2) -> list[Player]:
-        return [Player(name=name()) for _ in range(amount)]
-
-    def generate_territories(self, amount: int = 2, owners: list[Player] = None) -> list[Territory]:
-        if owners is None:
-            owners = [None for _ in range(amount)]
-
-        if len(owners) < amount:
-            # Pad the owner list with Nones if necessary
-            owners += [None for _ in range(amount - len(owners))]
-
-        return [Territory(owner=owner) for owner in owners]
-
-    def generate_troops(self, troops_by_territory: dict[Territory, int]) -> None:
-        for territory, num_troops in troops_by_territory.items():
-            for i in range(num_troops):
-                Troop(territory=territory)
-
     def test_instruction_with_other_origin_owner_is_invalid(self):
-        p1, p2 = self.generate_players()
-        t1, t2 = self.generate_territories(owners=[p2])
-        self.generate_troops({t1: 1})
+        p1, p2 = generate_players()
+        t1, t2 = generate_territories(owners=[p2])
+        generate_troops({t1: 1})
 
         order = Movement(issuer=p1, origin=t1, destination=t2, num_troops=1)
 
@@ -50,9 +53,9 @@ class MovementTest(TestCase):
             order.assert_is_valid()
 
     def test_moving_all_units_away_keeps_the_origin_owner_the_same(self):
-        p1, = self.generate_players(1)
-        t1, t2 = self.generate_territories(owners=[p1])
-        self.generate_troops({t1: 3})
+        p1, = generate_players(1)
+        t1, t2 = generate_territories(owners=[p1])
+        generate_troops({t1: 3})
         Movement(issuer=p1, origin=t1, destination=t2, num_troops=3, instruction_set=InstructionSet()).execute()
 
         self.assertTerritoryHasTroops(t1, 0)
@@ -61,25 +64,25 @@ class MovementTest(TestCase):
         self.assertTerritoryOwner(t2, p1)
 
     def test_instruction_with_all_available_units_is_valid(self):
-        p1, = self.generate_players(1)
-        t1, t2 = self.generate_territories(owners=[p1])
-        self.generate_troops({t1: 3})
+        p1, = generate_players(1)
+        t1, t2 = generate_territories(owners=[p1])
+        generate_troops({t1: 3})
         instruction = Movement(issuer=p1, origin=t1, destination=t2, num_troops=3)
         instruction.assert_is_valid()
 
     def test_instruction_with_insufficient_units_is_invalid(self):
-        p1, = self.generate_players(1)
-        t1, t2 = self.generate_territories(owners=[p1])
-        self.generate_troops({t1: 1})
+        p1, = generate_players(1)
+        t1, t2 = generate_territories(owners=[p1])
+        generate_troops({t1: 1})
         order = Movement(issuer=p1, origin=t1, destination=t2, num_troops=2)
 
         with self.assertRaises(InvalidInstruction):
             order.assert_is_valid()
 
     def test_instruction_can_be_executed_only_once(self):
-        p1, = self.generate_players(1)
-        t1, t2 = self.generate_territories(owners=[p1])
-        self.generate_troops({t1: 3})
+        p1, = generate_players(1)
+        t1, t2 = generate_territories(owners=[p1])
+        generate_troops({t1: 3})
 
         iset = InstructionSet()
         order = Movement(issuer=p1, origin=t1, destination=t2, num_troops=1, instruction_set=iset).execute()
@@ -88,9 +91,9 @@ class MovementTest(TestCase):
             order.execute()
 
     def test_expansion_to_an_empty_territory(self):
-        p1, = self.generate_players(1)
-        t1, t2 = self.generate_territories(owners=[p1])
-        self.generate_troops({t1: 10})
+        p1, = generate_players(1)
+        t1, t2 = generate_territories(owners=[p1])
+        generate_troops({t1: 10})
         Movement(issuer=p1, origin=t1, destination=t2, num_troops=6, instruction_set=InstructionSet()).execute()
 
         self.assertTerritoryOwner(t2, p1)
@@ -98,9 +101,9 @@ class MovementTest(TestCase):
         self.assertTerritoryHasTroops(t2, 6)
 
     def test_distributing_to_friendly_territory_costs_no_units(self):
-        p1, = self.generate_players(1)
-        t1, t2 = self.generate_territories(owners=[p1, p1])
-        self.generate_troops({t1: 10, t2: 6})
+        p1, = generate_players(1)
+        t1, t2 = generate_territories(owners=[p1, p1])
+        generate_troops({t1: 10, t2: 6})
 
         Movement(issuer=p1, origin=t1, destination=t2, num_troops=5, instruction_set=InstructionSet()).execute()
 
@@ -110,9 +113,9 @@ class MovementTest(TestCase):
         self.assertTerritoryOwner(t2, p1)
 
     def test_simple_successful_invasion(self):
-        p1, p2 = self.generate_players()
-        t1, t2 = self.generate_territories(owners=[p1, p2])
-        self.generate_troops({t1: 9, t2: 5})
+        p1, p2 = generate_players()
+        t1, t2 = generate_territories(owners=[p1, p2])
+        generate_troops({t1: 9, t2: 5})
 
         Movement(issuer=p1, origin=t1, destination=t2, num_troops=8, instruction_set=InstructionSet()).execute()
 
@@ -122,9 +125,9 @@ class MovementTest(TestCase):
         self.assertTerritoryOwner(t2, p1)
 
     def test_invasion_can_render_the_target_neutral(self):
-        p1, p2 = self.generate_players()
-        t1, t2 = self.generate_territories(owners=[p1, p2])
-        self.generate_troops({t1: 6, t2: 3})
+        p1, p2 = generate_players()
+        t1, t2 = generate_territories(owners=[p1, p2])
+        generate_troops({t1: 6, t2: 3})
 
         Movement(issuer=p1, origin=t1, destination=t2, num_troops=5, instruction_set=InstructionSet()).execute()
 
@@ -134,9 +137,9 @@ class MovementTest(TestCase):
         self.assertTerritoryNeutral(t2)
 
     def test_invasion_to_empty_land_still_costs_penalty(self):
-        p1, p2 = self.generate_players()
-        t1, t2 = self.generate_territories(owners=[p1, p2])
-        self.generate_troops({t1: 8, t2: 0})
+        p1, p2 = generate_players()
+        t1, t2 = generate_territories(owners=[p1, p2])
+        generate_troops({t1: 8, t2: 0})
         Movement(issuer=p1, origin=t1, destination=t2, num_troops=7, instruction_set=InstructionSet()).execute()
 
         # The troop penalty has been deducted from the 7 troops, but no further fighting took place.
@@ -144,9 +147,9 @@ class MovementTest(TestCase):
         self.assertTerritoryOwner(t2, p1)
 
     def test_mutual_invasion(self):
-        p1, p2 = self.generate_players()
-        t1, t2 = self.generate_territories(owners=[p1, p2])
-        self.generate_troops({t1: 6, t2: 10})
+        p1, p2 = generate_players()
+        t1, t2 = generate_territories(owners=[p1, p2])
+        generate_troops({t1: 6, t2: 10})
 
         iset = InstructionSet()
         i1 = Movement(issuer=p1, origin=t1, destination=t2, num_troops=3, instruction_set=iset)
@@ -165,9 +168,9 @@ class MovementTest(TestCase):
         self.assertTrue(i2.is_executed)
 
     def test_multiple_origin_skirmish_with_different_players(self):
-        p1, p2, p3 = self.generate_players(3)
-        t1, t2, t3 = self.generate_territories(owners=[p1, p2, p3])
-        self.generate_troops({t1: 6, t2: 4, t3: 10})
+        p1, p2, p3 = generate_players(3)
+        t1, t2, t3 = generate_territories(owners=[p1, p2, p3])
+        generate_troops({t1: 6, t2: 4, t3: 10})
 
         iset = InstructionSet()
         i1 = Movement(issuer=p1, origin=t1, destination=t3, num_troops=5, instruction_set=iset)
@@ -189,9 +192,9 @@ class MovementTest(TestCase):
         self.assertTrue(i2.is_executed)
 
     def test_triple_skirmish_with_three_players(self):
-        p1, p2, p3, p4 = self.generate_players(4)
-        t1, t2, t3, t4 = self.generate_territories(owners=[p1, p2, p3, p4])
-        self.generate_troops({t1: 6, t2: 3, t3: 10, t4: 1})
+        p1, p2, p3, p4 = generate_players(4)
+        t1, t2, t3, t4 = generate_territories(owners=[p1, p2, p3, p4])
+        generate_troops({t1: 6, t2: 3, t3: 10, t4: 1})
 
         iset = InstructionSet()
 
@@ -220,9 +223,9 @@ class MovementTest(TestCase):
 
     def test_simple_invasion_from_multiple_origins(self):
         self.skipTest('Need to properly define the spec of multi-origin invasions')
-        p1, p2 = self.generate_players()
-        t1, t2, t3 = self.generate_territories(owners=[p1, p1, p2])
-        self.generate_troops({t1: 3, t2: 4, t3: 20})
+        p1, p2 = generate_players()
+        t1, t2, t3 = generate_territories(owners=[p1, p1, p2])
+        generate_troops({t1: 3, t2: 4, t3: 20})
 
         iset = InstructionSet()
         i1 = Movement(issuer=p1, origin=t1, destination=t3, num_troops=2, instruction_set=iset)
@@ -233,9 +236,9 @@ class MovementTest(TestCase):
         raise NotImplementedError
 
     def test_order_of_chain_of_invasions(self):
-        p1, p2, p3 = self.generate_players(3)
-        t1, t2, t3 = self.generate_territories(owners=[p1, p2, p3])
-        self.generate_troops({t1: 6, t2: 6, t3: 6})
+        p1, p2, p3 = generate_players(3)
+        t1, t2, t3 = generate_territories(owners=[p1, p2, p3])
+        generate_troops({t1: 6, t2: 6, t3: 6})
 
         iset = InstructionSet()
         i1 = Movement(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
@@ -250,9 +253,9 @@ class MovementTest(TestCase):
         self.assertTerritoryHasTroops(t3, 4)
 
     def test_circular_invasions(self):
-        p1, p2, p3 = self.generate_players(3)
-        t1, t2, t3 = self.generate_territories(owners=[p1, p2, p3])
-        self.generate_troops({t1: 5, t2: 20, t3: 20})
+        p1, p2, p3 = generate_players(3)
+        t1, t2, t3 = generate_territories(owners=[p1, p2, p3])
+        generate_troops({t1: 5, t2: 20, t3: 20})
         iset = InstructionSet()
 
         i1 = Movement(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
@@ -273,9 +276,9 @@ class MovementTest(TestCase):
         self.assertTerritoryOwner(t1, p3)
 
     def test_invasion_can_be_rendered_partial_by_circular_invasions(self):
-        p1, p2, p3 = self.generate_players(3)
-        t1, t2, t3 = self.generate_territories(owners=[p1, p2, p3])
-        self.generate_troops({t1: 5, t2: 5, t3: 5})
+        p1, p2, p3 = generate_players(3)
+        t1, t2, t3 = generate_territories(owners=[p1, p2, p3])
+        generate_troops({t1: 5, t2: 5, t3: 5})
 
         iset = InstructionSet()
         i1 = Movement(issuer=p1, origin=t1, destination=t2, num_troops=4, instruction_set=iset)
@@ -288,8 +291,8 @@ class MovementTest(TestCase):
         i1.execute()
 
     def test_a_turn_sorts_instructions_into_instruction_sets(self):
-        p1, p2 = self.generate_players()
-        t1, t2, t3, t4 = self.generate_territories(amount=4, owners=[p1, p2, p2])
+        p1, p2 = generate_players()
+        t1, t2, t3, t4 = generate_territories(amount=4, owners=[p1, p2, p2])
 
         invasion = Movement(issuer=p1, origin=t1, destination=t2, num_troops=4)
         conditional_invasion = Movement(issuer=p1, origin=t2, destination=t4, num_troops=4)
@@ -306,9 +309,9 @@ class MovementTest(TestCase):
         self.assertEqual({conditional_invasion}, set(turn.instruction_sets[2].instructions))
 
     def test_a_turn_can_be_processed(self):
-        p1, = self.generate_players(1)
-        t1, t2 = self.generate_territories(owners=[p1])
-        self.generate_troops({t1: 10})
+        p1, = generate_players(1)
+        t1, t2 = generate_territories(owners=[p1])
+        generate_troops({t1: 10})
 
         turn = Turn([Movement(issuer=p1, origin=t1, destination=t2, num_troops=3)]).execute()
 
@@ -316,9 +319,9 @@ class MovementTest(TestCase):
         self.assertTrue(turn.instruction_sets[0].instructions[0].is_executed)
 
     def test_a_turn_processes_moves_in_the_right_order(self):
-        p1, p2 = self.generate_players()
-        t1, t2, t3, t4 = self.generate_territories(amount=4, owners=[p1, p2, p2])
-        self.generate_troops({t1: 10, t2: 4, t3: 10})
+        p1, p2 = generate_players()
+        t1, t2, t3, t4 = generate_territories(amount=4, owners=[p1, p2, p2])
+        generate_troops({t1: 10, t2: 4, t3: 10})
 
         Turn([
             Movement(issuer=p1, origin=t1, destination=t2, num_troops=4),
