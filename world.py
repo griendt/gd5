@@ -15,7 +15,10 @@ from excepts import (
     InvalidInstructionType,
     UnwindingLoopedInstructions,
     InstructionSetNotConstructible,
-    InstructionNotExecuted, IssuerAlreadyPresentInWorld, AdjacentTerritoryNotEmpty, TerritoryNotNeutral,
+    InstructionNotExecuted,
+    IssuerAlreadyPresentInWorld,
+    AdjacentTerritoryNotEmpty,
+    TerritoryNotNeutral,
 )
 from logger import logger
 
