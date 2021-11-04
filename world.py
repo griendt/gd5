@@ -15,7 +15,7 @@ from excepts import (
     InvalidInstructionType,
     UnwindingLoopedInstructions,
     InstructionSetNotConstructible,
-    InstructionNotExecuted,
+    InstructionNotExecuted, IssuerAlreadyPresentInWorld, AdjacentTerritoryNotEmpty, TerritoryNotNeutral,
 )
 from logger import logger
 
@@ -48,11 +48,6 @@ class Player:
 @dataclass
 class World:
     territories: dict[int, Territory] = field(default_factory=lambda: dict())
-
-    def link_territories_by_id(self, id_1: int, id_2: int) -> None:
-        territory_1, territory_2 = self.territories[id_1], self.territories[id_2]
-        territory_1.linked_territories.add(territory_2)
-        territory_2.linked_territories.add(territory_1)
 
 
 @dataclass
@@ -89,6 +84,12 @@ class Territory:
     def all(self, cls: type[Unit]) -> list[Unit]:
         """Convenience method."""
         return [unit for unit in self.units if isinstance(unit, cls)]
+
+    def link(self, other_territory: Territory) -> Territory:
+        self.linked_territories.add(other_territory)
+        other_territory.linked_territories.add(self)
+
+        return self
 
     def take_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> Unit | list[Unit] | None:
         """Select one or more random items from a type of unit."""
@@ -327,6 +328,7 @@ class InstructionType(Enum):
     DISTRIBUTION = 2
     INVASION = 3
     SKIRMISH = 4
+    CREATE_HEADQUARTER = 5
 
 
 class Instruction:
@@ -345,12 +347,31 @@ class Instruction:
         self.instruction_set = instruction_set
         self.instruction_type = instruction_type
 
+    def assert_is_valid(self) -> None:
+        raise NotImplementedError
+
 
 class CreateHeadquarter(Instruction):
     territory: Territory
+    world: World
 
-    #def __init__(self, issuer: Player, territory: Territory):
-        #if
+    def __init__(self, issuer: Player, territory: Territory, world: World, instruction_set: InstructionSet = None):
+        super().__init__(issuer=issuer, instruction_set=instruction_set)
+        self.territory = territory
+        self.world = world
+        self.instruction_type = InstructionType.CREATE_HEADQUARTER
+
+    def assert_is_valid(self) -> None:
+        if not self.territory.is_neutral():
+            raise TerritoryNotNeutral()
+
+        for territory in self.world.territories.values():
+            if territory.owner == self.issuer:
+                raise IssuerAlreadyPresentInWorld()
+
+        for territory in self.territory.linked_territories:
+            if not territory.is_empty():
+                raise AdjacentTerritoryNotEmpty()
 
 
 class Movement(Instruction):
