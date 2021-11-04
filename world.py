@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from itertools import count
@@ -18,7 +19,7 @@ from excepts import (
     InstructionNotExecuted,
     IssuerAlreadyPresentInWorld,
     AdjacentTerritoryNotEmpty,
-    TerritoryNotNeutral,
+    TerritoryNotNeutral, UnknownPhase,
 )
 from logger import logger
 
@@ -198,24 +199,55 @@ class General(Unit):
         return ":star:"
 
 
-@dataclass
-class Turn:
-    instruction_sets: list[InstructionSet] = field(default_factory=lambda: list())
+class Phase(Enum):
+    NATURAL = 1
+    GENERATION = 2
+    CONSTRUCTION = 3
+    MOVEMENT = 4
+    BATTLE = 5
+    FINAL = 6
 
-    def __init__(self, instructions: list[Movement]):
+
+class Turn:
+    instruction_sets: dict[Phase, list[InstructionSet]] = field(default_factory=lambda: list())
+
+    def __init__(self, instructions: list[Instruction]):
         # Here, we will decide which instructions should go in which instruction set.
-        # In principle, there should be only one instruction set, unless there are Instructions
-        # that are _conditional_, i.e. may or may not be executed depending on the outcome of previous ones.
-        # Those instructions should, logically, be applied only in a later InstructionSet.
+        # In principle, there should be only one instruction set for each Phase, unless there are Instructions
+        # that are _conditional_, i.e. may or may not be executed depending on the outcome of previous ones
+        # within the same Phase. Those instructions should, logically, be applied only in a later InstructionSet.
         # In addition, all non-battle movements should be separated from the battle movements, so as to make
         # sure those movements all occur first.
 
-        self.instruction_sets = []
-        if distributions := [i for i in instructions if i.origin.owner == i.destination.owner]:
-            self.instruction_sets.append(InstructionSet(instructions=distributions))
+        self.instruction_sets = defaultdict(lambda: [])
+        instructions = set(instructions)
 
+        for phase in Phase:
+            self.register(phase, instructions)
+            instructions = {instruction for instruction in instructions if not instruction.instruction_set}
+
+    def register(self, phase: Phase, instructions: set[Instruction]):
+        if phase == phase.NATURAL:
+            return
+        elif phase == phase.GENERATION:
+            return
+        elif phase == phase.CONSTRUCTION:
+            return
+        elif phase == phase.MOVEMENT:
+            if distributions := [i for i in instructions if isinstance(i, Movement) and i.origin.owner == i.destination.owner]:
+                self.instruction_sets[Phase.MOVEMENT].append(InstructionSet(instructions=distributions))
+            return
+        elif phase == phase.BATTLE:
+            self.register_battle_phase(instructions)
+            return
+        elif phase == phase.FINAL:
+            return
+        else:
+            raise UnknownPhase(phase)
+
+    def register_battle_phase(self, instructions: set[Instruction]) -> None:
         while True:
-            # Filter out instrunctions that have already been assigned to an InstructionSet.
+            # Filter out instructions that have already been assigned to an InstructionSet.
             if not (instructions := [i for i in instructions if not i.instruction_set]):
                 break
 
@@ -223,8 +255,8 @@ class Turn:
 
             for instruction in instructions:
 
-                if len(self.instruction_sets) >= 2:
-                    # A distribution and an invasion set have already been made. This means this Instruction
+                if self.instruction_sets.get(Phase.BATTLE):
+                    # An invasion InstructionSet has already been made. This means this Instruction
                     # must depend on the outcomes of previous Instructions. Mark the Instruction as such, so that
                     # the Instruction is allowed to be executed partially in case not all conditions are fulfilled.
                     instruction.allow_insufficient_troops()
@@ -245,28 +277,29 @@ class Turn:
                 # infinite loop. This should never be able to occur!
                 raise InstructionSetNotConstructible
 
-            self.instruction_sets.append(instruction_set)
+            self.instruction_sets[Phase.BATTLE].append(instruction_set)
 
     def execute(self) -> Turn:
         turn_info = ''
-        for instruction_set in self.instruction_sets:
-            turn_info += '\n    '
-            for instruction in instruction_set.instructions:
-                turn_info += ' - ' + instruction.repr_arrow() + '\n    '
-        logger.info(f'[yellow]Processing turn with following instructions[/yellow]:{turn_info}')
+        for phase, instruction_sets in self.instruction_sets.items():
+            for instruction_set in instruction_sets:
+                turn_info += '\n    '
+                for instruction in instruction_set.instructions:
+                    turn_info += ' - ' + instruction.repr_arrow() + '\n    '
+            logger.info(f'[yellow]Processing phase {phase} with following instructions[/yellow]:{turn_info}')
 
-        for instruction_set in self.instruction_sets:
-            for instruction in instruction_set.instructions:
-                try:
-                    instruction.execute()
-                except InstructionAlreadyExecuted:
-                    # Another Instruction may have already caused this Instruction to be executed.
-                    # This is fine, as long as we check that all Instructions were executed at the end.
-                    pass
+            for instruction_set in instruction_sets:
+                for instruction in instruction_set.instructions:
+                    try:
+                        instruction.execute()
+                    except InstructionAlreadyExecuted:
+                        # Another Instruction may have already caused this Instruction to be executed.
+                        # This is fine, as long as we check that all Instructions were executed at the end.
+                        pass
 
-            if [i for i in instruction_set.instructions if not i.is_executed]:
-                # All Instructions must be executed before moving on to the next InstructionSet.
-                raise InstructionNotExecuted
+                if [i for i in instruction_set.instructions if not i.is_executed]:
+                    # All Instructions must be executed before moving on to the next InstructionSet.
+                    raise InstructionNotExecuted
 
         return self
 

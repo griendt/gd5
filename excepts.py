@@ -65,3 +65,8 @@ class AdjacentTerritoryNotEmpty(InstructionException):
 class TerritoryNotNeutral(InstructionException):
     def __init__(self, *args, **kwargs):
         super().__init__("The territory is not neutral", *args, **kwargs)
+
+
+class UnknownPhase(Exception):
+    def __init__(self, phase, *args, **kwargs):
+        super().__init__(f"Unknown phase type: {phase}", *args, **kwargs)

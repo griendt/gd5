@@ -2,7 +2,7 @@ import unittest
 
 from excepts import InvalidInstruction, InstructionAlreadyExecuted
 from test.case import TestCase
-from world import Movement, InstructionSet, Turn
+from world import Movement, InstructionSet, Turn, Phase
 
 
 class MovementTest(TestCase):
@@ -276,20 +276,22 @@ class MovementTest(TestCase):
         # of issue, as t4 has no owner at that point in time.
         turn = Turn([invasion, conditional_invasion, distribution, expansion])
 
-        self.assertEqual(3, len(turn.instruction_sets))
-        self.assertEqual({distribution}, set(turn.instruction_sets[0].instructions))
-        self.assertEqual({invasion, expansion}, set(turn.instruction_sets[1].instructions))
-        self.assertEqual({conditional_invasion}, set(turn.instruction_sets[2].instructions))
+        self.assertEqual(1, len(turn.instruction_sets[Phase.MOVEMENT]))
+        self.assertEqual(2, len(turn.instruction_sets[Phase.BATTLE]))
+        self.assertEqual({distribution}, set(turn.instruction_sets[Phase.MOVEMENT][0].instructions))
+        self.assertEqual({invasion, expansion}, set(turn.instruction_sets[Phase.BATTLE][0].instructions))
+        self.assertEqual({conditional_invasion}, set(turn.instruction_sets[Phase.BATTLE][1].instructions))
 
     def test_a_turn_can_be_processed(self):
         p1, = self.generate_players(1)
         t1, t2 = self.generate_territories(owners=[p1])
         self.generate_troops({t1: 10})
 
-        turn = Turn([Movement(issuer=p1, origin=t1, destination=t2, num_troops=3)]).execute()
+        movement = Movement(issuer=p1, origin=t1, destination=t2, num_troops=3)
+        Turn([movement]).execute()
 
         self.assertTerritoryOwner(t2, p1)
-        self.assertTrue(turn.instruction_sets[0].instructions[0].is_executed)
+        self.assertTrue(movement.is_executed)
 
     def test_a_turn_processes_moves_in_the_right_order(self):
         p1, p2 = self.generate_players()
