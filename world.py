@@ -232,24 +232,18 @@ class Turn:
             self.register(phase, instructions)
             instructions = {instruction for instruction in instructions if not instruction.instruction_set}
 
-    def register(self, phase: Phase, instructions: set[Instruction]):
-        if phase == phase.NATURAL:
-            return
-        elif phase == phase.GENERATION:
-            return
-        elif phase == phase.CONSTRUCTION:
-            return
-        elif phase == phase.MOVEMENT:
-            if distributions := [i for i in instructions if isinstance(i, Movement) and i.origin.owner == i.destination.owner]:
-                self.instruction_sets[Phase.MOVEMENT].append(InstructionSet(instructions=distributions))
-            return
-        elif phase == phase.BATTLE:
-            self.register_battle_phase(instructions)
-            return
-        elif phase == phase.FINAL:
-            return
-        else:
-            raise UnknownPhase(phase)
+    def register(self, phase: Phase, instructions: set[Instruction]) -> None:
+        match phase:
+            case phase.NATURAL | phase.GENERATION | phase.CONSTRUCTION | phase.FINAL:
+                # Not yet implemented, or nothing to be done
+                pass
+            case phase.MOVEMENT:
+                if distributions := [i for i in instructions if isinstance(i, Movement) and i.origin.owner == i.destination.owner]:
+                    self.instruction_sets[Phase.MOVEMENT].append(InstructionSet(instructions=distributions))
+            case phase.BATTLE:
+                self.register_battle_phase(instructions)
+            case _:
+                raise UnknownPhase(phase)
 
     def register_battle_phase(self, instructions: set[Instruction]) -> None:
         while True:
@@ -709,28 +703,29 @@ class Movement(Instruction):
         if self._num_troops <= 0 or self._num_troops - self._num_troops_moved <= 0:
             logger.warning(f'No troops left to execute instruction ({self._num_troops} instructed, {self._num_troops - self._num_troops_moved} available)')
 
-        if self.instruction_type in [InstructionType.EXPANSION, InstructionType.DISTRIBUTION]:
-            """The destination is neutral or belongs to the same player. We will
-            simply move the units from the origin to the destination and set the ownership."""
-            logger.debug('Instruction is of type Expansion or Distribution')
-            self.resolve_expansion()
-        elif self.instruction_type == InstructionType.SKIRMISH:
-            if not self.skirmishing_movements:
-                logger.error('Instruction is marked as Skirmish but has no Skirmishing Instructions')
-                raise InstructionNoSkirmishingInstructions()
+        match self.instruction_type:
+            case InstructionType.EXPANSION | InstructionType.DISTRIBUTION:
+                """The destination is neutral or belongs to the same player. We will
+                simply move the units from the origin to the destination and set the ownership."""
+                logger.debug('Instruction is of type Expansion or Distribution')
+                self.resolve_expansion()
+            case InstructionType.SKIRMISH:
+                if not self.skirmishing_movements:
+                    logger.error('Instruction is marked as Skirmish but has no Skirmishing Instructions')
+                    raise InstructionNoSkirmishingInstructions()
 
-            """There are other Instructions that conflict with this one. This leads to skirmishes.
-            We will have to resolve those skirmishes first."""
-            logger.debug(f'Found {len(self.skirmishing_movements)} skirmish' + ('es' if len(self.skirmishing_movements) > 1 else ''))
-            self.resolve_skirmish(self.skirmishing_movements)
-        elif self.instruction_type == InstructionType.INVASION:
-            """We are dealing with an invasion here: the target territory already belongs
-            to another player. We will have to resolve the battle and units will be lost."""
-            logger.debug('Resolving invasion (not an expansion and no skirmishes found)')
-            self.resolve_invasion()
-        else:
-            logger.error(f'Unknown instruction type: {self.instruction_type.name}')
-            raise InvalidInstructionType(self.instruction_type.name)
+                """There are other Instructions that conflict with this one. This leads to skirmishes.
+                We will have to resolve those skirmishes first."""
+                logger.debug(f'Found {len(self.skirmishing_movements)} skirmish' + ('es' if len(self.skirmishing_movements) > 1 else ''))
+                self.resolve_skirmish(self.skirmishing_movements)
+            case InstructionType.INVASION:
+                """We are dealing with an invasion here: the target territory already belongs
+                to another player. We will have to resolve the battle and units will be lost."""
+                logger.debug('Resolving invasion (not an expansion and no skirmishes found)')
+                self.resolve_invasion()
+            case _:
+                logger.error(f'Unknown instruction type: {self.instruction_type.name}')
+                raise InvalidInstructionType(self.instruction_type.name)
 
         self.is_executed = True
         self.is_executing = False

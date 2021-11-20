@@ -15,5 +15,5 @@ logging.basicConfig(
     handlers=[RichHandler(markup=True, rich_tracebacks=False, show_time=False, show_path=False)]
 )
 logger = logging.getLogger('gd5')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 logger.indents = 0
