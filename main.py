@@ -6,7 +6,7 @@ from rich.panel import Panel
 from rich.table import Table
 from typing import Union, Iterable, TypeVar
 
-from world import World, Territory, WaterBiome, Player
+from gd.world import World, Territory, WaterBiome, Player
 
 nil = "[i dim]-[/i dim]"
 console = Console()

@@ -2,7 +2,8 @@ import unittest
 
 from excepts import IssuerAlreadyPresentInWorld, AdjacentTerritoryNotEmpty, TerritoryNotNeutral
 from test.case import TestCase
-from world import CreateHeadquarter, Headquarter, NUM_TROOPS_START
+from gd.world import Headquarter
+from gd.mechanics import CreateHeadquarter, NUM_TROOPS_START
 
 
 class SpawnHeadquarterTest(TestCase):

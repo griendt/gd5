@@ -3,7 +3,7 @@ from typing import Any
 
 from logger import logger
 from test import generate_name
-from world import Territory, Troop, Player, World, Construct
+from gd.world import Territory, Troop, Player, World, Construct
 
 
 class TestCase(unittest.TestCase):

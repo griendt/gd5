@@ -2,7 +2,7 @@ import unittest
 
 from excepts import InvalidInstruction, InstructionAlreadyExecuted
 from test.case import TestCase
-from world import Movement, InstructionSet, Turn, Phase
+from gd.mechanics import Phase, Turn, Movement, InstructionSet
 
 
 class MovementTest(TestCase):

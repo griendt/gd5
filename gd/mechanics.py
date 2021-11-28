@@ -1,208 +1,34 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import field, dataclass
 from enum import Enum
 from itertools import count
-from typing import Optional, TypeVar
 
 from excepts import (
-    InvalidInstruction,
-    InstructionAlreadyExecuted,
-    InsufficientUnitsException,
-    InstructionNotInInstructionSet,
-    InstructionAlreadyExecuting,
-    InstructionNoSkirmishingInstructions,
-    InvalidInstructionType,
-    UnwindingLoopedInstructions,
+    UnknownPhase,
     InstructionSetNotConstructible,
+    InstructionAlreadyExecuted,
     InstructionNotExecuted,
+    TerritoryNotNeutral,
     IssuerAlreadyPresentInWorld,
     AdjacentTerritoryNotEmpty,
-    TerritoryNotNeutral, UnknownPhase,
+    InvalidInstruction,
+    InstructionAlreadyExecuting,
+    UnwindingLoopedInstructions,
+    InsufficientUnitsException,
+    InstructionNotInInstructionSet,
+    InstructionNoSkirmishingInstructions,
+    InvalidInstructionType,
 )
+from gd.world import Player, InstructionType, Territory, World, Headquarter, Troop
 from logger import logger
-
-T = TypeVar('T')
 
 # Amount of troops to start out with when entering the world.
 NUM_TROOPS_START = 5
 
 # Amount of troops penalty by default when invading another player's territory.
 NUM_INVASION_PENALTY = 2
-
-
-@dataclass
-class Player:
-    name: str
-
-    id: int = None
-    next_id = count(1)
-    description: Optional[str] = ""
-    influence_points: int = 0
-
-    def __post_init__(self):
-        self.id = next(self.next_id)
-
-    def __hash__(self):
-        # Names are static and hence can be used as a hash safely
-        return hash(self.id)
-
-    def __setattr__(self, key, value):
-        if key == "name" and hasattr(self, "name"):
-            raise AttributeError("Cannot re-assign player names")
-
-        object.__setattr__(self, key, value)
-
-
-@dataclass
-class World:
-    territories: dict[int, Territory] = field(default_factory=lambda: dict())
-
-
-@dataclass
-class Biome:
-    type: str
-    color: Optional[str] = None
-
-    def render(self):
-        return f"[{self.color or 'dim'}]{self.type}"
-
-
-LandBiome = Biome(type="Land", color="yellow")
-WaterBiome = Biome(type="Water", color="blue")
-
-
-@dataclass
-class Territory:
-    id: int = None
-    biome: Biome = LandBiome
-    name: Optional[str] = None
-    owner: Optional[Player] = None
-    next_id = count(1)
-    linked_territories: set[Territory] = field(default_factory=lambda: set())
-    units: list[Unit] = field(default_factory=lambda: list())
-    constructs: set[Construct] = field(default_factory=lambda: set())
-
-    def __post_init__(self):
-        if not self.id:
-            self.id = next(self.next_id)
-
-    def set_owner(self, owner: Player) -> Territory:
-        self.owner = owner
-        return self
-
-    def all(self, cls: type[Unit]) -> list[Unit]:
-        """Convenience method."""
-        return [unit for unit in self.units if isinstance(unit, cls)]
-
-    def link(self, other_territory: Territory) -> Territory:
-        self.linked_territories.add(other_territory)
-        other_territory.linked_territories.add(self)
-
-        return self
-
-    def take_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> Unit | list[Unit] | None:
-        """Select one or more random items from a type of unit."""
-
-        if amount < 0:
-            raise ValueError("A non-negative amount of units must be taken")
-
-        if amount == 0:
-            return []
-
-        available = self.all(cls)
-        if amount > len(available):
-            if not allow_insufficient_amount:
-                raise InsufficientUnitsException(cls, amount)
-
-            # More units were requested than available, but this is specified to be OK.
-            # However, we must check if there are any available units left, to prevent fetching units
-            # from an empty list.
-            if not available:
-                return
-
-            amount = len(available)
-
-        return available[:amount] if amount > 1 else available[0]
-
-    def remove_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> None:
-        """Remove one or more units of the given type."""
-        available = self.all(cls)
-        if amount > len(available):
-            if not allow_insufficient_amount:
-                raise InsufficientUnitsException(cls, amount)
-
-            amount = len(available)
-
-        for unit in available[:amount]:
-            self.units.remove(unit)
-
-    def move_all(self, cls: type[Unit], destination: Territory) -> None:
-        """Convenience method. Move all units of the
-        given type to the destination territory."""
-        for unit in self.all(cls):
-            assert isinstance(unit, Unit)
-            unit.move(destination)
-
-    def is_empty(self) -> bool:
-        """Whether the territory is considered empty (devoid of units and constructs)."""
-        return not self.units and not self.constructs
-
-    def is_neutral(self) -> bool:
-        """Whether this territory is considered neutral (not belonging to any player).
-        Note that this is not necessarily the same as it being empty, as the territory might contain
-        a construct that does not require the availability of any units."""
-        return not self.owner
-
-    def __hash__(self):
-        return self.id
-
-
-class Unit:
-    id: int = None
-    territory: Territory = None
-    next_id = count(1)
-
-    def __init__(self, territory: Territory):
-        self.id = next(self.next_id)
-        self.move(territory)
-
-    def move(self, territory: Territory):
-        """Move a unit to a target territory."""
-
-        # Remove the unit from the current location, if it has one.
-        # This is not needed for newly created units.
-        if self.territory:
-            self.territory.units.remove(self)
-
-        # Set the territory property and modify the territory
-        # to contain this unit.
-        self.territory = territory
-        territory.units.append(self)
-
-    def remove(self):
-        """Remove this unit (i.e. it is slain)."""
-        if self.territory:
-            self.territory.units.remove(self)
-
-    def render(self):
-        raise NotImplementedError
-
-
-class Troop(Unit):
-    def render(self):
-        return ":kitchen_knife:"
-
-
-class Cavalry(Unit):
-    def render(self):
-        return ":firecracker:"
-
-
-class General(Unit):
-    def render(self):
-        return ":star:"
 
 
 class Phase(Enum):
@@ -238,7 +64,8 @@ class Turn:
                 # Not yet implemented, or nothing to be done
                 pass
             case phase.MOVEMENT:
-                if distributions := [i for i in instructions if isinstance(i, Movement) and i.origin.owner == i.destination.owner]:
+                if distributions := [i for i in instructions if
+                                     isinstance(i, Movement) and i.origin.owner == i.destination.owner]:
                     self.instruction_sets[Phase.MOVEMENT].append(InstructionSet(instructions=distributions))
             case phase.BATTLE:
                 self.register_battle_phase(instructions)
@@ -261,7 +88,8 @@ class Turn:
                     # the Instruction is allowed to be executed partially in case not all conditions are fulfilled.
                     instruction.allow_insufficient_troops()
 
-                if not [i for i in instructions if i.issuer == instruction.issuer and i.destination == instruction.origin]:
+                if not [i for i in instructions if
+                        i.issuer == instruction.issuer and i.destination == instruction.origin]:
                     # There is no Instruction by the same issuer that should come before this Instruction; i.e.
                     # there is no construction A -> B -> C where the current Instruction is B -> C. This means
                     # we can safely add this Instruction to the current Instruction set. Any Instructions that
@@ -304,82 +132,6 @@ class Turn:
         return self
 
 
-@dataclass
-class InstructionSet:
-    """Instructions are to be invoked in conjunction with other instructions: they are not standalone.
-    Consider for example a skirmish: this is a combination of two or more Instructions whose result
-    is altered by each other's existence. This class orchestrates this behaviour and allows Instructions
-    to see which other Instructions are relevant for its own execution."""
-
-    instructions: list[Movement] = field(default_factory=lambda: list())
-
-    def add_instruction(self, instruction: Movement) -> None:
-        """The preferred way to add instructions. This is because the InstructionSet may hydrate Instructions with
-        extra info, such as whether it is a skirmish and/or invasion and so on."""
-        if instruction in self.instructions:
-            return
-
-        instruction.instruction_set = self
-        self.instructions.append(instruction)
-        self.set_instruction_type(instruction)
-
-    def set_instruction_type(self, instruction: Movement) -> None:
-        if instruction.issuer == instruction.destination.owner:
-            instruction.instruction_type = InstructionType.DISTRIBUTION
-        elif [
-            instr for instr in self.instructions
-            if instr.destination == instruction.destination and instr.issuer != instruction.issuer and instr.issuer != instr.destination.owner
-        ]:
-            # There is another Player attempting to expand/invade to this destination. Hence, we're dealing with a skirmish.
-            # Note that if this other Player is the same player as the destination owner (if any), there is no skirmish, because
-            # such a movement is a Distribution, which is to be executed before attacks.
-            instructions_to_same_destination = [instr for instr in self.instructions if instr.destination == instruction.destination]
-            for instr in instructions_to_same_destination:
-                instr.instruction_type = InstructionType.SKIRMISH
-                instr.skirmishing_movements = [i for i in instructions_to_same_destination if i != instr]
-        elif instruction.destination.is_neutral():
-            instruction.instruction_type = InstructionType.EXPANSION
-        else:
-            # The target Territory belongs to a different Player. Therefore this is an Invasion.
-            instruction.instruction_type = InstructionType.INVASION
-            try:
-                mutual_invasion = [
-                    instr for instr in self.instructions
-                    if instr.issuer == instruction.destination.owner and instr.destination == instruction.origin
-                ][0]
-                instruction.mutual_invasion = mutual_invasion
-                mutual_invasion.mutual_invasion = instruction
-            except IndexError:
-                # No mutual invasion found.
-                pass
-
-    def __post_init__(self):
-        """Make sure that each Instruction is registered as being in this InstructionSet."""
-        for instruction in self.instructions:
-            instruction.instruction_set = self
-            self.set_instruction_type(instruction)
-
-
-class InstructionType(Enum):
-    EXPANSION = 1
-    DISTRIBUTION = 2
-    INVASION = 3
-    SKIRMISH = 4
-    CREATE_HEADQUARTER = 5
-
-
-class Construct:
-    territory: Territory
-
-    def __init__(self, territory: Territory):
-        self.territory = territory
-        self.territory.constructs.add(self)
-
-
-class Headquarter(Construct):
-    pass
-
-
 class Instruction:
     next_id = count(1)
     id: int
@@ -390,7 +142,8 @@ class Instruction:
     is_executing: bool = False
     is_executed: bool = False
 
-    def __init__(self, issuer: Player, instruction_set: InstructionSet = None, instruction_type: InstructionType = None):
+    def __init__(self, issuer: Player, instruction_set: InstructionSet = None,
+                 instruction_type: InstructionType = None):
         self.issuer = issuer
         self.id = next(self.next_id)
         self.instruction_set = instruction_set
@@ -448,7 +201,8 @@ class Movement(Instruction):
     _num_troops: int = 0
     _num_troops_moved: int = 0
 
-    def __init__(self, issuer: Player, origin: Territory, destination: Territory, num_troops: int = 0, instruction_set: InstructionSet = None):
+    def __init__(self, issuer: Player, origin: Territory, destination: Territory, num_troops: int = 0,
+                 instruction_set: InstructionSet = None):
         super().__init__(issuer=issuer, instruction_set=instruction_set)
         self.origin = origin
         self.destination = destination
@@ -482,9 +236,11 @@ class Movement(Instruction):
 
         if self._num_troops > (troops_in_origin := len({unit for unit in self.origin.all(Troop)})):
             if self._allow_insufficient_troops:
-                logger.info(f'Insufficient troops ({troops_in_origin}) in origin; {self._num_troops} requested, but partial assignment is allowed')
+                logger.info(
+                    f'Insufficient troops ({troops_in_origin}) in origin; {self._num_troops} requested, but partial assignment is allowed')
             else:
-                logger.error(f'Invalid instruction: insufficient troops in origin territory: {self._num_troops} requested, {troops_in_origin} found')
+                logger.error(
+                    f'Invalid instruction: insufficient troops in origin territory: {self._num_troops} requested, {troops_in_origin} found')
                 raise InvalidInstruction("Insufficient troops in origin territory")
 
         if self.destination not in self.origin.linked_territories:
@@ -504,7 +260,8 @@ class Movement(Instruction):
             instruction for instruction in self.instruction_set.instructions
             if instruction.origin == self.destination and not instruction.is_executed
         ]:
-            logger.info(f"This invasion has superseding movements:\n  - " + "\n  - ".join([invasion.repr_arrow() for invasion in higher_priority_movements]))
+            logger.info(f"This invasion has superseding movements:\n  - " + "\n  - ".join(
+                [invasion.repr_arrow() for invasion in higher_priority_movements]))
             try:
                 for instruction in higher_priority_movements:
                     instruction.execute()
@@ -513,13 +270,15 @@ class Movement(Instruction):
                 # and take the one with the lowest origin territory number. As a tie-breaker, that one will be
                 # used to resolve the circle first.
 
-                first_origin_id = min([instruction.origin.id for instruction in self.instruction_set.instructions if instruction.is_executing])
+                first_origin_id = min([instruction.origin.id for instruction in self.instruction_set.instructions if
+                                       instruction.is_executing])
                 self._is_part_of_loop = True
 
                 if isinstance(exception, InstructionAlreadyExecuting):
                     # Only print some useful logging when first encountering the loop, to avoid clutter during unwinding.
                     logger.info(f"Found circular set of instructions\n  - " + "\n  - ".join(
-                        [instruction.repr_arrow() for instruction in self.instruction_set.instructions if instruction.is_executing]
+                        [instruction.repr_arrow() for instruction in self.instruction_set.instructions if
+                         instruction.is_executing]
                     ))
                     logger.info(f"The chosen origin id to be executed from is {first_origin_id}")
 
@@ -531,7 +290,8 @@ class Movement(Instruction):
                     raise UnwindingLoopedInstructions()
 
             logger.info(f"Resolved superseding invasions for instruction id {self.id}")
-            for instruction in [instruction for instruction in self.instruction_set.instructions if instruction.is_executing and instruction != self]:
+            for instruction in [instruction for instruction in self.instruction_set.instructions if
+                                instruction.is_executing and instruction != self]:
                 # The current instruction may now go through. If however this instruction was chosen because of a circular loop,
                 # then the other instructions in the loop are still set as executing, while they are no longer being executed.
                 # Hence, set their flag back to False so they can be processed as a normal chain.
@@ -576,7 +336,8 @@ class Movement(Instruction):
 
         # Determine whether the attacker has units left. If so, move them to the target
         # territory and set the attacker as the new owner of the target.
-        if remainder := self.origin.take_unit(Troop, self._num_troops - self._num_troops_moved, self._allow_insufficient_troops):
+        if remainder := self.origin.take_unit(Troop, self._num_troops - self._num_troops_moved,
+                                              self._allow_insufficient_troops):
             # If the attacker has Troops remaining, move them to the target territory.
             self.destination.set_owner(self.origin.owner)
 
@@ -660,7 +421,8 @@ class Movement(Instruction):
             # When this Instruction was originally created, it was considered an Expansion.
             # However, other Instructions have occurred before this one, and the empty Territory
             # has been taken by another Player. Therefore, we should now resolve this as an Invasion instead.
-            logger.debug(f'Movement to {self.destination.id} was originally an expansion, but a new owner ({self.destination.owner.name}) has been detected; resolving to invasion')
+            logger.debug(
+                f'Movement to {self.destination.id} was originally an expansion, but a new owner ({self.destination.owner.name}) has been detected; resolving to invasion')
             return self.resolve_invasion()
 
         logger.debug(f'Movement to {self.destination.id} is considered an expansion or relocation')
@@ -669,8 +431,8 @@ class Movement(Instruction):
         while self._num_troops > self._num_troops_moved:
             # Note: we regard each troop here as being identical.
             if (
-                (unit := self.origin.take_unit(Troop, 1, self._allow_insufficient_troops)) is None
-                and self._allow_insufficient_troops
+                    (unit := self.origin.take_unit(Troop, 1, self._allow_insufficient_troops)) is None
+                    and self._allow_insufficient_troops
             ):
                 # Not all requested units could be moved, because there are too few available.
                 # However, this Instruction was marked as allowed to occur with insufficient troops, so this is OK.
@@ -701,7 +463,8 @@ class Movement(Instruction):
             raise InstructionNotInInstructionSet()
 
         if self._num_troops <= 0 or self._num_troops - self._num_troops_moved <= 0:
-            logger.warning(f'No troops left to execute instruction ({self._num_troops} instructed, {self._num_troops - self._num_troops_moved} available)')
+            logger.warning(
+                f'No troops left to execute instruction ({self._num_troops} instructed, {self._num_troops - self._num_troops_moved} available)')
 
         match self.instruction_type:
             case InstructionType.EXPANSION | InstructionType.DISTRIBUTION:
@@ -716,7 +479,8 @@ class Movement(Instruction):
 
                 """There are other Instructions that conflict with this one. This leads to skirmishes.
                 We will have to resolve those skirmishes first."""
-                logger.debug(f'Found {len(self.skirmishing_movements)} skirmish' + ('es' if len(self.skirmishing_movements) > 1 else ''))
+                logger.debug(f'Found {len(self.skirmishing_movements)} skirmish' + (
+                    'es' if len(self.skirmishing_movements) > 1 else ''))
                 self.resolve_skirmish(self.skirmishing_movements)
             case InstructionType.INVASION:
                 """We are dealing with an invasion here: the target territory already belongs
@@ -739,9 +503,69 @@ class Movement(Instruction):
                 instruction for instruction in self.instruction_set.instructions
                 if instruction.origin == self.destination and not instruction.is_executed
             ]:
-                logger.info(f"This instruction was part of a loop; resolving instructions from target:\n  - " + "\n  - ".join([instruction.repr_arrow() for instruction in instructions_from_target]))
+                logger.info(
+                    f"This instruction was part of a loop; resolving instructions from target:\n  - " + "\n  - ".join(
+                        [instruction.repr_arrow() for instruction in instructions_from_target]))
 
             for instruction in instructions_from_target:
                 instruction.allow_insufficient_troops().execute()
 
         return self
+
+
+@dataclass
+class InstructionSet:
+    """Instructions are to be invoked in conjunction with other instructions: they are not standalone.
+    Consider for example a skirmish: this is a combination of two or more Instructions whose result
+    is altered by each other's existence. This class orchestrates this behaviour and allows Instructions
+    to see which other Instructions are relevant for its own execution."""
+
+    instructions: list[Movement] = field(default_factory=lambda: list())
+
+    def add_instruction(self, instruction: Movement) -> None:
+        """The preferred way to add instructions. This is because the InstructionSet may hydrate Instructions with
+        extra info, such as whether it is a skirmish and/or invasion and so on."""
+        if instruction in self.instructions:
+            return
+
+        instruction.instruction_set = self
+        self.instructions.append(instruction)
+        self.set_instruction_type(instruction)
+
+    def set_instruction_type(self, instruction: Movement) -> None:
+        if instruction.issuer == instruction.destination.owner:
+            instruction.instruction_type = InstructionType.DISTRIBUTION
+        elif [
+            instr for instr in self.instructions
+            if
+            instr.destination == instruction.destination and instr.issuer != instruction.issuer and instr.issuer != instr.destination.owner
+        ]:
+            # There is another Player attempting to expand/invade to this destination. Hence, we're dealing with a skirmish.
+            # Note that if this other Player is the same player as the destination owner (if any), there is no skirmish, because
+            # such a movement is a Distribution, which is to be executed before attacks.
+            instructions_to_same_destination = [instr for instr in self.instructions if
+                                                instr.destination == instruction.destination]
+            for instr in instructions_to_same_destination:
+                instr.instruction_type = InstructionType.SKIRMISH
+                instr.skirmishing_movements = [i for i in instructions_to_same_destination if i != instr]
+        elif instruction.destination.is_neutral():
+            instruction.instruction_type = InstructionType.EXPANSION
+        else:
+            # The target Territory belongs to a different Player. Therefore this is an Invasion.
+            instruction.instruction_type = InstructionType.INVASION
+            try:
+                mutual_invasion = [
+                    instr for instr in self.instructions
+                    if instr.issuer == instruction.destination.owner and instr.destination == instruction.origin
+                ][0]
+                instruction.mutual_invasion = mutual_invasion
+                mutual_invasion.mutual_invasion = instruction
+            except IndexError:
+                # No mutual invasion found.
+                pass
+
+    def __post_init__(self):
+        """Make sure that each Instruction is registered as being in this InstructionSet."""
+        for instruction in self.instructions:
+            instruction.instruction_set = self
+            self.set_instruction_type(instruction)

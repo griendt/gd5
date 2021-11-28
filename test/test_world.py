@@ -4,7 +4,7 @@ from faker import Faker
 
 from excepts import InsufficientUnitsException
 from test.case import TestCase
-from world import World, Territory, LandBiome, Player, Troop, Unit, General, Cavalry, Construct
+from gd.world import World, Territory, LandBiome, Player, Troop, Unit, General, Cavalry, Construct
 
 name = Faker().name
 
