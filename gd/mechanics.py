@@ -21,7 +21,7 @@ from excepts import (
     InstructionNoSkirmishingInstructions,
     InvalidInstructionType,
 )
-from gd.world import Player, InstructionType, Territory, World, Headquarter, Troop
+from gd.world import Player, Territory, World, Headquarter, Troop
 from logger import logger
 
 # Amount of troops to start out with when entering the world.
@@ -569,3 +569,11 @@ class InstructionSet:
         for instruction in self.instructions:
             instruction.instruction_set = self
             self.set_instruction_type(instruction)
+
+
+class InstructionType(Enum):
+    EXPANSION = 1
+    DISTRIBUTION = 2
+    INVASION = 3
+    SKIRMISH = 4
+    CREATE_HEADQUARTER = 5

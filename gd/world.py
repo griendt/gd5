@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
 from itertools import count
 from typing import Optional, TypeVar
 
@@ -185,14 +184,6 @@ class Cavalry(Unit):
 class General(Unit):
     def render(self):
         return ":star:"
-
-
-class InstructionType(Enum):
-    EXPANSION = 1
-    DISTRIBUTION = 2
-    INVASION = 3
-    SKIRMISH = 4
-    CREATE_HEADQUARTER = 5
 
 
 class Construct:
