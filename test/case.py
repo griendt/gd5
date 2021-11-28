@@ -3,7 +3,7 @@ from typing import Any
 
 from gd.logger import logger
 from test import generate_name
-from gd.world import Territory, Troop, Player, World, Construct
+from gd.world import Territory, Troop, Player, World, Construct, Boundary
 
 
 class TestCase(unittest.TestCase):
@@ -47,14 +47,14 @@ class TestCase(unittest.TestCase):
             owners += [None for _ in range(amount - len(owners))]
 
         # Register the territories into the world.
-        for territory in (territories := [Territory(owner=owner) for owner in owners]):
+        for territory in (territories := [Territory(owner=owner, world=self.world) for owner in owners]):
             self.world.territories[territory.id] = territory
 
         # Link all territories together
         if complete_graph:
             for territory_1 in territories:
                 for territory_2 in territories:
-                    territory_1.link(territory_2)
+                    self.world.boundaries.add(Boundary(territories=(territory_1, territory_2)))
 
         return territories
 

@@ -1,12 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from itertools import count
 from typing import Optional, TypeVar
 
 from gd.excepts import InsufficientUnitsException
 
 T = TypeVar('T')
+
+
+
+@dataclass
+class World:
+    territories: dict[int, Territory] = field(default_factory=lambda: dict())
+    boundaries: set[Boundary] = field(default_factory=lambda: set())
+
+
+world = World()
 
 
 @dataclass
@@ -31,12 +42,6 @@ class Player:
 
         object.__setattr__(self, key, value)
 
-
-@dataclass
-class World:
-    territories: dict[int, Territory] = field(default_factory=lambda: dict())
-
-
 @dataclass
 class Biome:
     type: str
@@ -57,9 +62,9 @@ class Territory:
     name: Optional[str] = None
     owner: Optional[Player] = None
     next_id = count(1)
-    linked_territories: set[Territory] = field(default_factory=lambda: set())
     units: list[Unit] = field(default_factory=lambda: list())
     constructs: set[Construct] = field(default_factory=lambda: set())
+    world: World = world
 
     def __post_init__(self):
         if not self.id:
@@ -72,12 +77,6 @@ class Territory:
     def all(self, cls: type[Unit]) -> list[Unit]:
         """Convenience method."""
         return [unit for unit in self.units if isinstance(unit, cls)]
-
-    def link(self, other_territory: Territory) -> Territory:
-        self.linked_territories.add(other_territory)
-        other_territory.linked_territories.add(self)
-
-        return self
 
     def take_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> Unit | list[
         Unit] | None:
@@ -133,8 +132,33 @@ class Territory:
         a construct that does not require the availability of any units."""
         return not self.owner
 
+    @property
+    def boundaries(self) -> set[Boundary]:
+        """Return the boundaries of this Territory."""
+        return {boundary for boundary in self.world.boundaries if self in boundary.territories}
+
+    @property
+    def adjacent_territories(self) -> set[Territory]:
+        """Return the Territories that share a boundary with this Territory."""
+        return {territory for boundary in self.boundaries for territory in boundary.territories if territory != self}
+
+
     def __hash__(self):
         return self.id
+
+
+class Terrain(Enum):
+    FLAT = 1
+    MOUNTAIN = 2
+
+
+@dataclass
+class Boundary:
+    territories: tuple[Territory, Territory]
+    terrain: Terrain = Terrain.FLAT
+
+    def __hash__(self):
+        return hash((self.territories[0].id, self.territories[1].id, self.terrain))
 
 
 class Unit:
