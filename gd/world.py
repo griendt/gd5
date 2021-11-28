@@ -9,8 +9,6 @@ from gd.excepts import InsufficientUnitsException
 T = TypeVar('T')
 
 
-
-
 @dataclass
 class Player:
     name: str
@@ -81,7 +79,8 @@ class Territory:
 
         return self
 
-    def take_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> Unit | list[Unit] | None:
+    def take_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> Unit | list[
+        Unit] | None:
         """Select one or more random items from a type of unit."""
 
         if amount < 0:
@@ -194,5 +193,3 @@ class Construct:
 
 class Headquarter(Construct):
     pass
-
-
