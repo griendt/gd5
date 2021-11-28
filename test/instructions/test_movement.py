@@ -1,6 +1,6 @@
 import unittest
 
-from excepts import InvalidInstruction, InstructionAlreadyExecuted
+from gd.excepts import InvalidInstruction, InstructionAlreadyExecuted
 from test.case import TestCase
 from gd.mechanics import Phase, Turn, Movement, InstructionSet
 

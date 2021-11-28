@@ -5,7 +5,7 @@ from dataclasses import field, dataclass
 from enum import Enum
 from itertools import count
 
-from excepts import (
+from gd.excepts import (
     UnknownPhase,
     InstructionSetNotConstructible,
     InstructionAlreadyExecuted,
@@ -22,7 +22,7 @@ from excepts import (
     InvalidInstructionType,
 )
 from gd.world import Player, Territory, World, Headquarter, Troop
-from logger import logger
+from gd.logger import logger
 
 # Amount of troops to start out with when entering the world.
 NUM_TROOPS_START = 5

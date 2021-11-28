@@ -4,9 +4,7 @@ from dataclasses import dataclass, field
 from itertools import count
 from typing import Optional, TypeVar
 
-from excepts import (
-    InsufficientUnitsException,
-)
+from gd.excepts import InsufficientUnitsException
 
 T = TypeVar('T')
 

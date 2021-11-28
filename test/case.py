@@ -1,7 +1,7 @@
 import unittest
 from typing import Any
 
-from logger import logger
+from gd.logger import logger
 from test import generate_name
 from gd.world import Territory, Troop, Player, World, Construct
 

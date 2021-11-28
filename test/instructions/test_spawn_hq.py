@@ -1,6 +1,6 @@
 import unittest
 
-from excepts import IssuerAlreadyPresentInWorld, AdjacentTerritoryNotEmpty, TerritoryNotNeutral
+from gd.excepts import IssuerAlreadyPresentInWorld, AdjacentTerritoryNotEmpty, TerritoryNotNeutral
 from test.case import TestCase
 from gd.world import Headquarter
 from gd.mechanics import CreateHeadquarter, NUM_TROOPS_START
