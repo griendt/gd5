@@ -174,7 +174,7 @@ class CreateHeadquarter(Instruction):
             if territory.owner == self.issuer:
                 raise IssuerAlreadyPresentInWorld()
 
-        for territory in self.territory.linked_territories:
+        for territory in self.territory.adjacent_territories:
             if not territory.is_empty():
                 raise AdjacentTerritoryNotEmpty()
 
@@ -243,7 +243,7 @@ class Movement(Instruction):
                     f'Invalid instruction: insufficient troops in origin territory: {self._num_troops} requested, {troops_in_origin} found')
                 raise InvalidInstruction("Insufficient troops in origin territory")
 
-        if self.destination not in self.origin.linked_territories:
+        if self.destination not in self.origin.adjacent_territories:
             raise InvalidInstruction("Destination is not linked to the origin")
 
         logger.debug('Instruction is valid')

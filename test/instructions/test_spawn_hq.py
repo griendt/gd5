@@ -2,7 +2,7 @@ import unittest
 
 from gd.excepts import IssuerAlreadyPresentInWorld, AdjacentTerritoryNotEmpty, TerritoryNotNeutral
 from test.case import TestCase
-from gd.world import Headquarter
+from gd.world import Headquarter, Boundary
 from gd.mechanics import CreateHeadquarter, NUM_TROOPS_START
 
 
@@ -23,7 +23,7 @@ class SpawnHeadquarterTest(TestCase):
     def test_spawn_headquarter_is_impossible_if_adjacent_land_is_not_empty(self):
         p1, p2 = self.generate_players()
         t1, t2 = self.generate_territories(owners=[p1])
-        t1.link(t2)
+        t1.world.boundaries.add(Boundary(territories=(t1, t2)))
         self.generate_troops({t1: 1})
 
         with (self.assertRaises(AdjacentTerritoryNotEmpty)):

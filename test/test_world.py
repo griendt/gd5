@@ -4,7 +4,7 @@ from faker import Faker
 
 from gd.excepts import InsufficientUnitsException
 from test.case import TestCase
-from gd.world import World, Territory, LandBiome, Player, Troop, Unit, General, Cavalry, Construct
+from gd.world import World, Territory, LandBiome, Player, Troop, Unit, General, Cavalry, Construct, Boundary
 
 name = Faker().name
 
@@ -132,6 +132,13 @@ class WorldTest(TestCase):
 
         with self.assertRaises(ValueError):
             territory.take_unit(Troop, -1)
+
+    def test_adjacent_territory_detection(self):
+        t1, t2 = Territory(), Territory()
+        t1.world.boundaries.add(Boundary(territories=(t1, t2)))
+
+        self.assertEqual(t1.adjacent_territories, {t2})
+        self.assertEqual(t2.adjacent_territories, {t1})
 
 
 if __name__ == "__main__":

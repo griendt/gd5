@@ -71,7 +71,7 @@ def render_struct(struct: dataclass) -> Union[str, ConsoleRenderable]:
                 territory.biome.render(),
                 territory.owner.name if territory.owner else nil,
                 f":kitchen_knife: {territory.id * 5:<2} :firecracker: 3" + (" :star:" if territory.id == 2 else ""),
-                " ".join(sorted({str(other.id) for other in territory.linked_territories}))
+                " ".join(sorted({str(other.id) for other in territory.adjacent_territories}))
             )
     else:
         raise NotImplementedError(f"Cannot parse list of {type(struct[0])}")
