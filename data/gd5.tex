@@ -1,0 +1,279 @@
+\documentclass[10pt,openright,a4paper,openany]{article}
+
+%\usepackage[paperwidth=6in, paperheight=8.2in, margin=2.0cm]{geometry}
+%\usepackage[latin1]{inputenc}
+
+% for end of line hyphenation
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{enumitem}
+%\usepackage{fullpage}
+\usepackage{fontspec}
+\usepackage{marginnote}
+\usepackage{tcolorbox}
+
+\usepackage{emoji}
+
+% a new counter for use in margin notes
+\newcounter{sidenote}
+\newcommand{\sidenote}[1]{
+	\refstepcounter{sidenote}
+	\hspace{-7pt}\mbox{\textsuperscript{\thesidenote}}
+	\marginnote{\mbox{\textsuperscript{\thesidenote}}{\color{red}#1}} % the note
+}
+
+% For font
+\usepackage[bitstream-charter]{mathdesign}
+\usepackage[T1]{fontenc}
+
+% For clever references
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=cyan}
+\vfuzz=12pt
+
+\newcommand{\num}[1]{\texttt{\color{purple} {#1}}}
+\newcommand{\term}[1]{\textbf{\color{purple} #1}}
+
+\renewcommand*{\theenumi}{\thesection.\arabic{enumi}}
+\renewcommand*{\theenumii}{\theenumi.\arabic{enumii}}
+
+\newcommand{\headquarter}{\term{Headquarter}}
+\newcommand{\fortress}{\term{Fortress}}
+\newcommand{\general}{\term{General}}
+
+\newenvironment{warn}{
+	\begin{tcolorbox}[
+		colback=purple!5!white,
+		colframe=purple!75!black,
+		% title=My nice heading
+	]
+}{
+	\end{tcolorbox}
+}
+\setlist[enumerate,2]{label=\theenumi.\arabic*}
+
+\begin{document}
+\title{Global Domination V}
+\author{Aluce}
+\maketitle
+
+\begin{center}
+\texttt{v0.3}
+\end{center}
+
+\begin{warn}
+	\center{\textbf{Do not be alarmed by the length of this text!}}
+	\tcblower 
+	If you are new to Global Domation, please \textbf{do not read all the rules} in one go! You will get confused.
+	\begin{itemize}
+		\item To understand the game, read only the rules labeled according to the $x.y$ pattern.
+		\item To learn more about a given rule or see its edge cases, exceptions and such, read the rules labeled in the $x.y.z$ pattern. These rules only exist to ensure proper game flow and prevent discussions so that I (the host) can remain as neutral as possible.
+		\item If you have any questions, obviously feel free to ask! As a host it is my job to keep the game clear and concise.
+	\end{itemize} 
+\end{warn}
+\section{Start of the Game}\label{sec:start}
+\begin{enumerate}
+	\item Before the start of the first \term{Turn}, nobody occupies any land. There are only empty lands, indicated by a neutral colour on the map.
+	\item Players may join the game by posting in the denominated Global Domination V Telegram chat and mentioning their preferred starting location. This is one unoccupied land territory of choice, so long as it does not border directly (via land or through sea lines) against any other player's established starting location. In addition, please specify your preferred colour (other than white/gray/black, as those can cause confusion), a cool name for your country and optionally some awesome lore.
+	\item When the first \term{Turn} starts, each player automatically obtains a \headquarter{} which will be placed at their starting location.
+	\item In addition to a \headquarter{}, each player also begins with \num{5} \term{Troops} in their starting location (which will turn into \num{8} to be used during the first \term{Turn}; see section \ref{sec:generation}).
+	\item Until the first \term{Turn} starts, it is possible for players to change their mind about their starting location (for example, due to other developments on the map or other players' choices of starting locations). However, as soon as the first \term{Turn} begins, the starting points are fixed.
+	\item It may be possible for additional players to join later on in the game, if the course of the game is suitable for it. Should this happen, then the new player must follow the rules of section \ref{sec:start}, replacing ``first \term{Turn}'' with ``\term{Turn} at which the player joins the battlefield''.
+	\item At the start of the first \term{Turn} of a player, they get \num{50} \term{Influence Points} to be used specifically in this \term{Turn} \emph{only}. Any and all \term{Influence Points} not used of these \num{50} are discarded immediately at the end of the \term{Construction Phase}.
+\end{enumerate}
+
+\section{Turn Mechanics}\label{sec:turn}
+\begin{enumerate}
+	\item \label{rule:homeland}Each player gets assigned a \term{Homeland}, which by default is the \term{Headquarter}.
+	\begin{enumerate}
+		\item If the player possesses one or more \headquarter{}{}s, the longest held \headquarter{} is that player's \term{Homeland}.
+		\item If multiple such \headquarter{}{}s exist, the one with the lowest territory ID will be the \term{Homeland}.
+		\item If no such \headquarter{}{}s exist, then the land territory with the lowest territory ID that the player owns will be the \term{Homeland}.
+		\item If no such territory exists, the player has no \term{Homeland}. Any action or rule involving \term{Homelands} will then no longer occur for that player.
+	\end{enumerate}
+	\item Each \term{Turn}, all living players must send me their orders. These orders will be processed and executed on the map simultaneously!
+	\begin{enumerate}
+		\item If a player does not send me any (valid) moves on time, I may decide to end the turn at the deadline anyway. In this case, the player will be considered to not have sent any specific moves. Any units to be spawned will spawn at their \term{Homeland} and be \term{Troops}. If not all units can be spawned in this manner, then the amount is reduced until they can.
+		\item \label{rule:invalid-moves}If a player has sent some valid orders, but also some invalid ones, and the invalid moves are not corrected on time, I may decide to process the partially valid orders or discard them, at my discretion. I will typically discard partially valid moves if they are nonsensical on their own.
+	\end{enumerate}
+	\item Only orders that are sent to me \emph{in private} will be considered! Orders that were sent anywhere else other than direct messaging to me will be ignored.
+	\item \label{rule:play-dirty} You are, of course, free to post your orders to other players as well, or even in public, if you wish to do so for whatever reason. You are allowed to lie and to bluff. It's all part of the game. Playing dirty is encouraged!
+	\begin{enumerate}
+		\item An exception to rule \ref{rule:play-dirty} is direct forwarding or otherwise providing actual proof to anyone which moves you have sent to me privately. Informing others is permitted but only by word and trust.
+	\end{enumerate}
+	\item A \term{Turn} will end on \textbf{Monday evenings} and \textbf{Thursday evenings}. I will announce at the start of each \term{Turn} until what time exactly that \term{Turn} will last.
+	\begin{enumerate}
+		\item If every living player has sent me fully valid orders before the deadline, the \term{Turn} may be ended more quickly to speed the game up a bit.
+		\item If a player has sent orders on time, but due to my late processing it is discovered too late that the orders are (partially) invalid, the \term{Turn} may be extended with a reasonable amount of time to allow the player to correct their orders.
+		\item If I point out one or more invalid orders in a set of orders given by a player, and the player has not corrected them before the deadline for the \term{Turn} is over, I may either extend the deadline, or discard the invalid moves and process the \term{Turn} anyway. If the \term{Turn} is processed, see rule \ref{rule:invalid-moves}.
+		\item If a living player requests a delay of the deadline in a reasonable and timely manner, the duration of the \term{Turn} may be extended. Should this happen, of course all players will be notified.
+	\end{enumerate}
+	\item Each \term{Turn} consists of several \term{Phases}, which are executed in a specific order. Each of these \term{Phases} has its own section: sections \ref{sec:natural}, \ref{sec:generation}, \ref{sec:inventory}, \ref{sec:construction}, \ref{sec:movement}, \ref{sec:battle}, \ref{sec:final}. In practice, usually the Generation, Movement and Battle phases are the most important.
+	\begin{itemize}
+		\item \term{Natural Phase}: Any modifiers to the map occurring independently from any living player's actions occur in this \term{Phase}. These modifiers must be announced the previous \term{Turn} so that each player can anticipate. See section \ref{sec:natural}.
+		\item \term{Generation Phase}: Each player obtains new units. Where the rules allow, players may choose what kind of units these will spawn. If left unspecified, they will take on the form of \term{Troop} by default. If the spawn location is not specified, the \term{Homeland} is used. If spawning under these rules is not possible, the unit is not spawned. See section \ref{sec:generation}.
+		\item \term{Inventory Phase}: Players may use one or more of their available \term{Stash Items}. See section \ref{sec:inventory}.
+		\item \term{Construction Phase}: Players may build \term{Constructs} or otherwise enhance their landscape or army as the rules permit them to. See section \ref{sec:construction}.
+		\item \term{Movement Phase}: All movements that can be performed before the execution of any \term{Invasion} or \term{Skirmish}, are performed in this \term{Phase}. This includes (but might not be limited to) \term{Distributions}, \term{Relocations} and \term{Expansions}. See section \ref{sec:movement}.
+		\item \term{Battle Phase}: All movements of the type \term{Invasion} and \term{Skirmish} are executed. Note that no non-battle movements are performed after this \term{Phase}, so you should consider it to be the last thing your army will be doing this \term{Turn}. See section \ref{sec:battle}.
+		\item \term{Final Phase}: Players cannot make any moves in this \term{Phase}. Players obtain \term{Influence Points} or other bonuses and maluses based on the \term{Turn}'s results. See section \ref{sec:final}.
+	\end{itemize}
+	\item Players do not need (and probably should not try) to specify in which \term{Phase} an order takes place; each order belongs only to one unique \term{Phase} and I will easily sort the orders in their rightful place.
+	\item If several orders belong to the same \term{Phase}, their order of execution might be relevant. If not obvious, please specify the order when submitting your orders.
+	\item \label{rule:max-units-in-land}At the end of \textbf{each} \term{Phase}, each territory may contain only up to \num{5} units of each type. I will accept moves that violate this rule (though I might warn you), but should it occur that you have too many units in a territory of a given type at the end of some \term{Phase}, then units are removed until only \num{5} of that type remain.
+	\begin{enumerate}
+		\item An exception is made for territories containing a \headquarter{}. These territories may contain any amount of units during each \term{Phase}, \emph{except} the \term{Final Phase}. So, be sure to distribute your units and not leave them hanging in your \headquarter{} at the end of the \term{Turn}!
+		\item Other conditions, items or constructs may alter this maximum also if they specify it (see \term{Garrison}).
+	\end{enumerate}
+\end{enumerate}
+
+\section{Natural Phase}\label{sec:natural}
+\begin{enumerate}
+	\item For each unit type stationed in a \term{Wasteland}, one unit is removed.
+\end{enumerate}
+
+\section{Generation Phase}\label{sec:generation}
+In the \term{Generation Phase}, new units will spawn according to the rules below.
+\begin{enumerate}
+	\item \label{rule:base-spawn}Each player may spawn an amount of units equal to their total amount of territories, divided by \num{4}, rounded up, with a minimum of \num{3} units. So, if you have \num{13} territories, you may spawn \num{4} units; at \num{17} you may spawn \num{5} units and so on.
+	\item Units spawned in this phase must each be spawned in one of the player's \headquarter{}{}s.
+	\begin{enumerate}
+		\item If a player possesses no \headquarter{}, then he may spawn units \textbf{only} in any \textbf{single} territory that is still under his control. In this case, the player should specify which territory this will be.
+		\item If a player possesses multiple \headquarter{}{}s, he is free to spawn his units among these \headquarter{}{}s as he wishes.
+	\end{enumerate}
+
+	\item In addition to the units spawned according to rule \ref{rule:base-spawn}, you may decide to spend \num{10} \term{Influence Points} (at most once per \term{Turn}) to spawn an additional \num{2} units.
+	\item Unless other rules permit it, all units spawned in this phase are \term{Troops} by default.
+\end{enumerate}
+
+\section{Inventory Phase}\label{sec:inventory}
+In the \term{Inventory Phase}, if a player fulfills the requirements, he may purchase and/or use one or multiple \term{Stash Items}.
+\begin{enumerate}
+	\item A \term{Stash Item} that is purchased this \term{Turn} may only be used in subsequent \term{Turns}.
+	\item A player's collection of \term{Stash Items} will never be revealed publicly. However, whenever a \term{Stash Item} is used, it will be mentioned in the \term{Turn} update.
+	\subsection*{Buying Stash Items}
+
+	\item At the expense of \num{30} \term{Influence Points}, a player may purchase a \term{Crop Supply}. This is a \term{Stash Item}.
+	\item At the expense of \num{10} \term{Influence Points}, a player may purchase a \term{Bag of Salt}. This is a \term{Stash Item}.
+	\item At the expense of \num{30} \term{Influence Points}, a player may purchase a \term{Dynamite}. This is a \term{Stash Item}.
+	\subsection*{Using Stash Items}
+
+	\item When using a \term{Crop Supply}, all territories that you control at the moment of use will gain \num{1} additional \term{Troop} (where possible).
+	\item When using a \term{Bag of Salt}, you may turn a land territory that you control into a \term{Wasteland}. Be careful: once a \term{Wasteland}, this cannot be undone!
+	\item When using a \term{Dynamite}, you may target a territory adjacent to a territory you control and throw it there. A stick of \term{Dynamite} will kill \num{1} enemy \term{Troop}, destroy any \term{Bivouac}, \term{Garrison} or \term{Trebuchet}, and turn a \term{Fortress} into a \term{Ruin}.
+\end{enumerate}
+
+
+\section{Construction Phase}\label{sec:construction}
+\begin{enumerate}
+	\item \label{rule:constructs} Any immovable object tied to a territory is considered a \term{Construct}, except for \headquarter{}{}s. Other objects may also be \term{Constructs}; if that is so, it will be specified explicitly.
+	\item No \term{Construct} may be built on any \term{Wasteland}.
+	\item At the expense of \num{20} \term{Influence Points} you may build a \fortress{} in a land territory you control, unless that territory already contains an unmovable \term{Construct}.
+\item Whoever controls the territory containing a \term{Ruin} may rebuild the \term{Ruin} at the expense of either \num{10} \term{Influence Points} or \num{1} unit of any type stationed in the territory containing the \term{Ruin}.
+\item At the expense of \num{30} \term{Influence Points}, a player may build a \term{Trebuchet} in a land territory that they control. A \term{Trebuchet} counts as a \term{Construct}, despite being able to move (see rule \ref{rule:trebuchet-move}).
+\item At the expense of \num{20} \term{Influence Points} (+\num{10} \term{Influence Points} for each \term{Bivouac} under your control) you may build a \term{Bivouac} in a land territory you control, unless it already contains a \term{Construct} or a \headquarter{}.
+	\item At the expense of \num{20} \term{Influence Points} you may build a \term{Garrison} in a land territory that you control, unless that territory already contains an unmovable \term{Construct}. A territory containing a \term{Garrison} allows double the amount of units per type to be stationed in it as permitted in rule \ref{rule:max-units-in-land}.
+% \item \label{rule:conversion-cavalry}At the expense of \num{3} \term{Influence Points}, a player may equip a military unit with a horse, making it a \term{Cavalry} unit.
+% \item \label{rule:conversion-archer}At the expense of \num{3} \term{Influence Points}, a player may equip a military unit with bow and arrows, making it an \term{Archer} unit.
+% \item It is allowed, at no additional cost, to cast away the bow and arrows or the warhose equpped on a unit, and revert it back to its \term{Troop} type.
+\end{enumerate}
+
+\section{Movement Phase}\label{sec:movement}
+\begin{enumerate}
+	\item Moving units from any territory you control to an adjacent territory that you also control is called a \term{Distribution}.
+	\item Moving units from any territory you control to an adjacent territory that you do not control is called an \term{Expansion}.
+	\begin{enumerate}
+		\item If the target territory is controlled by another player, then this \term{Expansion} is in fact an \term{Invasion}! This means that this move will actually occur in the \term{Battle Phase}.
+		\item If any other player(s) also move(s) to the same target territory in the same \term{Turn}, then all players involve will \term{Skirmish}! This means that this move will actually occur in the \term{Battle Phase}.
+	\end{enumerate}
+	\item \label{rule:movement-restrictions}Each unit has the ability to move through at most \num{2} territories per \term{Turn}, with the exception of units stationed in a \headquarter{} at the start of this \term{Phase}; those units have the ability to move at most \num{3} territories.
+	\begin{enumerate}
+		\item When armies merge together and perform follow-up actions, you do not need to specify precisely which subsets of units will do the follow-up action in order to abide by rule \ref{rule:movement-restrictions}. The unit(s) with the fewest movement options left will be left behind automatically, giving you the most possible options.
+	\end{enumerate}
+	% \item A \term{Cavalry} unit has access to his warhorse's great speed. Hence, \term{Cavalry} units may perform up to \num{+2} extra movements.
+	\item Note that it is never possible to make \term{Distributions} or \term{Expansions} to neutral lands after battles have taken place; this is because this \term{Phase} finishes before \term{Battle Phase}.
+	\item There is no need to specify the movement type when sending your orders. Each movement will automatically correspond to a suitable type. Note that, in fact, you might not be \emph{able} to know, because what looks to you as a non-battle \term{Expansion} may actually turn out to trigger a \term{Skirmish}!
+	\item \label{rule:trebuchet-move}A \term{Trebuchet} may be moved from any territory you conrol to an adjacent territory that you also control, i.e. a \term{Distribution}. However, due to its size and weight, this can be done only once per \term{Turn} per \term{Trebuchet}. A territory may contain any amount of \term{Trebuchets}.
+\end{enumerate}
+
+\section{Battle Phase}\label{sec:battle}
+\begin{enumerate}
+	\item When two or more players attempt to \term{expand} into the same territory, these movements are considered to be in a \term{Skirmish}.
+	\item When one player attempts to \term{expand} into a territory occupied by another player, this is considered an \term{Invasion}.
+	\item Whenever relevant, \term{Skirmishes} are resolved before \term{Invasions}.
+	\item If a player \term{expands} to a target territory from multiple origin territories (such as $\texttt{A} \to \texttt{C}$ and $\texttt{B} \to \texttt{C}$, where $\texttt{A}$ and $\texttt{B}$ belong to the same player), and these \term{Expansions} are to be resolved at the same time, then all involved units in these \term{Expansions} are considered as \textbf{one} combined army. This may allow players to overtake a territory using two lands which could not be overtaken with either land on their own.
+	\item \label{rule:skirmish}When a \term{Skirmish} occurs, each involved player loses one military unit simultaneously. This process repeats as long as at least two involved players have a military unit left.
+	\begin{enumerate}
+		% \item If either army has multiple types of units, then units will be lost in a specific order as determined by rule \ref{rule:order-military}.
+		% \item If a player also brought non-military units, but has no military units left due to rule \ref{rule:skirmish}, then the non-military units will abandon the battleground and stay in their origin territory/territories. This resolves the \term{Skirmish} for this player.
+		\item If exactly all but one player have run out of military units, then this final player will continue their movement to the target territory with whichever units they have remaining. Note that this continuation could lead to a new battle (of type \term{Invasion}) if the target territory belongs to another player!
+	\end{enumerate}
+	\subsection*{Invasions}\item An enemy \term{invading} a territory containing a \fortress{} will first have to break through the walls before being able to destroy any of your units. Breaking through a \fortress{} costs the attacker \num{2} military units.
+	\begin{itemize}
+		\item If the invader still has military units remaining, the battle will continue as usual. See section \ref{sec:battle}.
+		% \item If the invader uses several types of military units in his attack, then the \fortress{} will kill units in the same order as in an ordinary battle. In this sense, a \fortress{} can be seen as equal to two \term{Troops}.
+		\item If the invader did not have sufficient military units to break the walls, then the \fortress{} stands, unharmed, but the invader lost all military units.
+	\end{itemize}
+\item If an enemy successfully breaks through the \fortress{} walls, then it changes into a \term{Ruin}. Note that this does not depend on whether the invader successfully overtook the territory! \term{Ruins} may be left even in neutral lands. A \term{Ruin} is still a \term{Construct} as per rule \ref{rule:constructs}.
+	\item In an \term{Invasion}, the attacker's army is first lowered by \num{2} units. After this initial attack penalty, each one attacking unit defeats one defensive unit, unless otherwise specified. The conversion table (assuming only basic units and no other conditions) is then as follows:\par
+	\begin{tabular}{c|c|l}
+		\textbf{\#ATK} & \textbf{\#DEF} & \textbf{Result}  \\\hline
+		1 & 1 & The attacker is destroyed; defender remains intact \\
+		2 & 1 & The attacker is destroyed; defender remains intact \\
+		3 & 1 & The attacker neutralizes the defending land (see \ref{rule:neutralization}) \\
+		4 & 1 & The attacker overtakes the land with one unit remaining \\
+		5 & 2 & The attacker overtakes the land with \num{1} remaining unit \\{}
+		2 & 5 & The attacker loses both units; defender has \num{5} units left \\
+		5 & 5 & The attacker loses all units; defender has \num{2} units left
+	\end{tabular}
+	Note that in order for an attacker to overtake a territory containing the maximum amount of units, he needs either additional troops from other lands or have some other bonuses that modify this chart or allow larger attacks.
+	% \item \label{rule:order-military}If an invader uses multiple types of military units in his attack, the attack is processed per type in the following order of types:
+	% \begin{itemize}
+	% 	\item \term{Cavalry};
+	% 	\item \term{Infantry} (\term{Troops});
+	% 	\item \term{Archery};
+	% \end{itemize}
+	% This means that when attacking a territory, the enemy \term{Cavalry} is slain first, then their \term{Troops} and finally their \term{Archery}. Similarly, when attacking, your own \term{Cavalry} gets slain first, then your \term{Troops} and finally your \term{Archery}.
+	\item \label{rule:neutralization}A territory can be rendered neutral if the attacking player has defeated all units in the target territory, but has no units remaining to occupy it.
+	\item A territory is overtaken if all units stationed in the target territory are destroyed, and the attacker has units left in the attack to occupy it.
+  \item Any remaining \term{Trebuchets} or \term{Bivouacs} in a neutralized or overtaken territory will be destroyed during the attack.
+	\item \term{Sieges} to a given enemy territory occur before any \term{Invasion} to that territory.
+	\item In case of a circular loop of \term{Invasions} (for example. $\texttt{A} \to \texttt{B} \to \texttt{C} \to \texttt{A}$), the territory with the lowest ID will perform their \term{Invasion} first. This will break the loop, after which the order of \term{Invasions} can be determined normally.
+	% \item An \term{Archer} unit may, instead of moving into enemy territory causing an \term{Invasion}, decide to \term{Siege} a neighbouring enemy territory. This is also an attack, but the \term{Archer} unit does not move.
+	% \item For each \term{Archer} that \term{Sieges} an enemy territory, the enemy territory loses \num{0.5} military unit, rounded down, in the \textbf{reverse} order as specified in rule \ref{rule:order-military}. So, with \num{5} \term{Archers} it is possible to kill \num{2} enemy \term{Archers} by \term{Siege}.
+	% \item If multiple \term{Sieges} occur to the same target territory, then this is considered as one bigger \term{Siege} with the amount of \term{Archers} being the sum of the individual \term{Sieges}. Hence, performing a \term{Siege} from two origins with \num{5} \term{Archers} each will, together, kill \num{5} enemy units.
+	% \begin{enumerate}
+	% 	\item The \term{Archers} in question need not belong to the same player! Two or more different players may individually \term{Siege} the same target territory as if they are one; \term{Sieges} never lead to a \term{Skirmish}.
+	% \end{enumerate}
+	% \item \term{Archers} performing a \term{Siege} on a territory that contains a \fortress{} is ineffective, as arrows cannot penetrate the walls. To effectively lay siege on a fortress, use a \term{Trebuchet}.
+	\subsection*{Siege}
+	\item A \term{Trebuchet} may be ordered to \term{Siege} a neighbouring territory. However, it may do so \emph{only} if it has not been moved or built this same \term{Turn}.
+	\begin{enumerate}
+		\item \label{rule:trebuchet-kill}The \term{Trebuchet} will kill \num{2} enemy units.
+	\item If a \term{Trebuchet} sieges a territory containing a \term{Fortress}, you may decide whether to slay \num{2} enemy units as per rule \ref{rule:trebuchet-kill}, or instead target the walls of the \term{Fortress}, breaking it down and turning it into a \term{Ruin}. If not specified in the order, the \term{Trebuchet} will target the \term{Fortress} by default.
+	\end{enumerate}
+
+	\subsection*{Fortresses}
+	\item An enemy \term{invading} a territory containing a \fortress{} will first have to break through the walls before being able to destroy any of your units. Breaking through a \fortress{} costs the attacker \num{2} military units.
+	\begin{itemize}
+		\item If the invader still has military units remaining, the battle will continue as usual. See section \ref{sec:battle}.
+		% \item If the invader uses several types of military units in his attack, then the \fortress{} will kill units in the same order as in an ordinary battle. In this sense, a \fortress{} can be seen as equal to two \term{Troops}.
+		\item If the invader did not have sufficient military units to break the walls, then the \fortress{} stands, unharmed, but the invader lost all military units.
+	\end{itemize}
+\item If an enemy successfully breaks through the \fortress{} walls, then it changes into a \term{Ruin}. Note that this does not depend on whether the invader successfully overtook the territory! \term{Ruins} may be left even in neutral lands. A \term{Ruin} is still a \term{Construct} as per rule \ref{rule:constructs}.
+\end{enumerate}
+
+\section{Final Phase}\label{sec:final}
+\begin{itemize}
+\item Territories containing a \term{Bivouac} will spawn a \term{Troop} in that territory (if possible).
+\item For each territory under your control, gain +\num{1} \term{Influence Point}.
+\item For each \num{10} \term{Troops} under your control, gain +\num{1} \term{Influence Point}.
+\item For each \headquarter{} under your control, gain +\num{4} \term{Influence Points}.
+\end{itemize}
+
+\end{document}
