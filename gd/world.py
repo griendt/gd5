@@ -10,7 +10,6 @@ from gd.excepts import InsufficientUnitsException
 T = TypeVar('T')
 
 
-
 @dataclass
 class World:
     territories: dict[int, Territory] = field(default_factory=lambda: dict())
