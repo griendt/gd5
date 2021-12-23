@@ -61,7 +61,7 @@
 \maketitle
 
 \begin{center}
-\texttt{v1.2.0}
+\texttt{v1.3.0}
 \end{center}
 
 \begin{warn}
@@ -123,10 +123,9 @@
 	\end{itemize}
 	\item Players do not need (and probably should not try) to specify in which \term{Phase} an order takes place; each order belongs only to one unique \term{Phase} and I will easily sort the orders in their rightful place.
 	\item If several orders belong to the same \term{Phase}, their order of execution might be relevant. If not obvious, please specify the order when submitting your orders.
-	\item \label{rule:max-units-in-land}At the end of \textbf{each} \term{Phase}, each territory may contain only up to \num{5} units of each type. I will accept moves that violate this rule (though I might warn you), but should it occur that you have too many units in a territory of a given type at the end of some \term{Phase}, then units are removed until only \num{5} of that type remain.
+	\item ``Conditional'' orders are not permitted. That is to say, orders who are designed to trigger only if certain conditions are met that the \term{Player} who specified the order wishes. As such, orders such as ``move five units to territory $\texttt{A}$, and \emph{if at least three survive}, send the rest to $\texttt{B}$''. As a rule of thumb: if your order contains an ``if'', it will be forbidden.
 	\begin{enumerate}
-		\item An exception is made for territories containing a \headquarter{}. These territories may contain any amount of units during each \term{Phase}, \emph{except} the \term{Final Phase}. So, be sure to distribute your units and not leave them hanging in your \headquarter{} at the end of the \term{Turn}!
-		\item Other conditions, items or constructs may alter this maximum also if they specify it (see \term{Garrison}).
+		\item Some movements are inherently conditional, for example if you have a movement chain such as $\texttt{A} \to \texttt{B} \to \texttt{C}$; of course the movement to $\texttt{C}$ is only possible if the first movement was successful. However, this is a condition applied to the movement due to the game rules, and not due to the Player's wishes. Such movements will be executed to the best possible degree; for example if the move was ``move 4 units from \texttt{B} to \texttt{C}'' but there were only 3 units available to move due to an unexpected skirmish at \texttt{B}, then the original order will be partially fulfilled, and only 3 of the 4 intended units will move to \texttt{C}.
 	\end{enumerate}
 \end{enumerate}
 
@@ -161,7 +160,7 @@ In the \term{Inventory Phase}, if a player fulfills the requirements, he may pur
 	\item At the expense of \num{30} \term{Influence Points}, a player may purchase a \term{Dynamite}. This is a \term{Stash Item}.
 	\subsection*{Using Stash Items}
 
-	\item When using a \term{Crop Supply}, all territories that you control at the moment of use will gain \num{1} additional \term{Troop} (where possible).
+	\item When using a \term{Crop Supply}, all territories that you control at the moment of use will gain \num{1} additional \term{Troop}, except for territories that already contain their maximum allowed amount of \term{Troops} as per rule \ref{rule:max-units-in-land}.
 	\item When using a \term{Bag of Salt}, you may turn a land territory that you control into a \term{Wasteland}. Be careful: once a \term{Wasteland}, this cannot be undone!
 	\item When using a \term{Dynamite}, you may target a territory adjacent to a territory you control and throw it there. A stick of \term{Dynamite} will kill \num{1} enemy \term{Troop}, destroy any \term{Bivouac}, \term{Garrison} or \term{Trebuchet}, and turn a \term{Fortress} into a \term{Ruin}.
 \end{enumerate}
@@ -197,6 +196,11 @@ In the \term{Inventory Phase}, if a player fulfills the requirements, he may pur
 	\item Note that it is never possible to make \term{Distributions} or \term{Expansions} to neutral lands after battles have taken place; this is because this \term{Phase} finishes before \term{Battle Phase}.
 	\item There is no need to specify the movement type when sending your orders. Each movement will automatically correspond to a suitable type. Note that, in fact, you might not be \emph{able} to know, because what looks to you as a non-battle \term{Expansion} may actually turn out to trigger a \term{Skirmish}!
 	\item \label{rule:trebuchet-move}A \term{Trebuchet} may be moved from any territory you conrol to an adjacent territory that you also control, i.e. a \term{Distribution}. However, due to its size and weight, this can be done only once per \term{Turn} per \term{Trebuchet}. A territory may contain any amount of \term{Trebuchets}.
+	\item \label{rule:max-units-in-land}At the end of each \term{Movement Phase}, each territory may contain only up to \num{5} units of each type. I will accept moves that violate this rule (though I might warn you), but should it occur that you have too many units in a territory of a given type at the end of some \term{Phase}, then units are removed until only \num{5} of that type remain.
+	\begin{enumerate}
+		\item An exception is made for territories containing a \headquarter{}. These territories may contain any amount of units during each \term{Phase}, \emph{except} the \term{Final Phase}. So, be sure to distribute your units and not leave them hanging in your \headquarter{} at the end of the \term{Turn}!
+		\item Other conditions, items or constructs may alter this maximum also if they specify it (see \term{Garrison}).
+	\end{enumerate}
 \end{enumerate}
 
 \section{Battle Phase}\label{sec:battle}
