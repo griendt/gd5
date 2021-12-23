@@ -60,15 +60,18 @@ class Turn:
 
     def register(self, phase: Phase, instructions: set[Instruction]) -> None:
         match phase:
-            case phase.NATURAL | phase.GENERATION | phase.CONSTRUCTION | phase.FINAL:
-                # Not yet implemented, or nothing to be done
-                pass
+            case phase.CONSTRUCTION:
+                if constructions := [i for i in instructions if isinstance(i, CreateHeadquarter)]:
+                    self.instruction_sets[Phase.CONSTRUCTION].append(InstructionSet(instructions=constructions))
             case phase.MOVEMENT:
                 if distributions := [i for i in instructions if
                                      isinstance(i, Movement) and i.origin.owner == i.destination.owner]:
                     self.instruction_sets[Phase.MOVEMENT].append(InstructionSet(instructions=distributions))
             case phase.BATTLE:
                 self.register_battle_phase(instructions)
+            case phase.NATURAL | phase.GENERATION | phase.FINAL:
+                # Not yet implemented, or nothing to be done
+                pass
             case _:
                 raise UnknownPhase(phase)
 
