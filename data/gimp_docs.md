@@ -66,3 +66,12 @@ For the water effect:
      - Blur radius 0
      - Grow radius 2
      - Opacity 2.0
+   
+# Barbarians
+ - Territory color: #B5B5A5
+
+# Wastelands
+ - Use the fill tool with the "Dried Mud" pattern fill
+ - Colours -> Treshold
+   - Set the __white__ to 200
+ - Make sure the layer has opacity 50%
