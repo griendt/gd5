@@ -510,15 +510,15 @@ class Movement(Instruction):
             f'    - destination: (id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})')
 
         if self._is_part_of_loop:
-            if instructions_from_target := [
-                instruction for instruction in self.instruction_set.instructions
+            if movements_from_target := [
+                instruction for instruction in self.instruction_set.movements
                 if instruction.origin == self.destination and not instruction.is_executed
             ]:
                 logger.info(
                     f"This instruction was part of a loop; resolving instructions from target:\n  - " + "\n  - ".join(
-                        [str(instruction) for instruction in instructions_from_target]))
+                        [str(instruction) for instruction in movements_from_target]))
 
-            for instruction in instructions_from_target:
+            for instruction in movements_from_target:
                 instruction.allow_insufficient_troops().execute()
 
         return self
