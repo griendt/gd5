@@ -61,7 +61,7 @@ class Turn:
 
     def register(self, phase: Phase, instructions: set[Instruction]) -> None:
         match phase:
-            case phase.CONSTRUCTION:
+            case phase.NATURAL:
                 if constructions := [i for i in instructions if isinstance(i, CreateHeadquarter)]:
                     self.instruction_sets[Phase.CONSTRUCTION].append(InstructionSet(instructions=constructions))
             case phase.MOVEMENT:
@@ -70,7 +70,7 @@ class Turn:
                     self.instruction_sets[Phase.MOVEMENT].append(InstructionSet(instructions=distributions))
             case phase.BATTLE:
                 self.register_battle_phase(instructions)
-            case phase.NATURAL | phase.GENERATION | phase.FINAL:
+            case phase.CONSTRUCTION | phase.GENERATION | phase.FINAL:
                 # Not yet implemented, or nothing to be done
                 pass
             case _:
