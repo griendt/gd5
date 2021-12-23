@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import abstractmethod, ABC
 from collections import defaultdict
 from dataclasses import field, dataclass
 from enum import Enum
@@ -135,7 +136,7 @@ class Turn:
         return self
 
 
-class Instruction:
+class Instruction(ABC):
     next_id = count(1)
     id: int
     issuer: Player
@@ -152,9 +153,11 @@ class Instruction:
         self.instruction_set = instruction_set
         self.instruction_type = instruction_type
 
+    @abstractmethod
     def assert_is_valid(self) -> None:
         raise NotImplementedError
 
+    @abstractmethod
     def execute(self) -> Instruction:
         raise NotImplementedError
 
