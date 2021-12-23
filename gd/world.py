@@ -42,6 +42,7 @@ class Player:
 
         object.__setattr__(self, key, value)
 
+    @property
     def owned_territories(self) -> set[Territory]:
         return {territory for territory in self.world.territories.values() if territory.owner == self}
 
@@ -67,8 +68,8 @@ class Territory:
     name: Optional[str] = None
     owner: Optional[Player] = None
     next_id = count(1)
-    units: list[Unit] = field(default_factory=lambda: list())
-    constructs: set[Construct] = field(default_factory=lambda: set())
+    units: list[Unit] = field(default_factory=list)
+    constructs: set[Construct] = field(default_factory=set)
     world: World = world
 
     def __post_init__(self):
@@ -83,10 +84,8 @@ class Territory:
         """Convenience method."""
         return [unit for unit in self.units if isinstance(unit, cls)]
 
-    def take_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> Unit | list[
-        Unit] | None:
+    def take_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> Unit | list[Unit] | None:
         """Select one or more random items from a type of unit."""
-
         if amount < 0:
             raise ValueError("A non-negative amount of units must be taken")
 
@@ -137,6 +136,14 @@ class Territory:
         a construct that does not require the availability of any units."""
         return not self.owner
 
+    def has_construct(self, construct_class: type) -> bool:
+        """Whether this territory contains a construct of the given class."""
+        for construct in self.constructs:
+            if isinstance(construct, construct_class):
+                return True
+
+        return False
+
     @property
     def boundaries(self) -> set[Boundary]:
         """Return the boundaries of this Territory."""
@@ -147,9 +154,8 @@ class Territory:
         """Return the Territories that share a boundary with this Territory."""
         return {territory for boundary in self.boundaries for territory in boundary.territories if territory != self}
 
-
     def __hash__(self):
-        return self.id
+        return hash(self.id)
 
 
 class Terrain(Enum):
@@ -195,6 +201,9 @@ class Unit:
 
     def render(self):
         raise NotImplementedError
+
+    def __hash__(self):
+        return hash(self.id)
 
 
 class Troop(Unit):
