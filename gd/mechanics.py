@@ -525,9 +525,13 @@ class InstructionSet:
     is altered by each other's existence. This class orchestrates this behaviour and allows Instructions
     to see which other Instructions are relevant for its own execution."""
 
-    instructions: list[Movement] = field(default_factory=lambda: list())
+    instructions: list[Instruction] = field(default_factory=lambda: list())
 
-    def add_instruction(self, instruction: Movement) -> None:
+    @property
+    def movements(self) -> list[Movement]:
+        return [instruction for instruction in self.instructions if isinstance(instruction, Movement)]
+
+    def add_instruction(self, instruction: Instruction) -> None:
         """The preferred way to add instructions. This is because the InstructionSet may hydrate Instructions with
         extra info, such as whether it is a skirmish and/or invasion and so on."""
         if instruction in self.instructions:
@@ -535,20 +539,21 @@ class InstructionSet:
 
         instruction.instruction_set = self
         self.instructions.append(instruction)
-        self.set_instruction_type(instruction)
 
-    def set_instruction_type(self, instruction: Movement) -> None:
+        if isinstance(instruction, Movement):
+            self.set_movement_type(instruction)
+
+    def set_movement_type(self, instruction: Movement) -> None:
         if instruction.issuer == instruction.destination.owner:
             instruction.instruction_type = InstructionType.DISTRIBUTION
         elif [
-            instr for instr in self.instructions
-            if
-            instr.destination == instruction.destination and instr.issuer != instruction.issuer and instr.issuer != instr.destination.owner
+            instr for instr in self.movements
+            if instr.destination == instruction.destination and instr.issuer != instruction.issuer and instr.issuer != instr.destination.owner
         ]:
             # There is another Player attempting to expand/invade to this destination. Hence, we're dealing with a skirmish.
             # Note that if this other Player is the same player as the destination owner (if any), there is no skirmish, because
             # such a movement is a Distribution, which is to be executed before attacks.
-            instructions_to_same_destination = [instr for instr in self.instructions if
+            instructions_to_same_destination = [instr for instr in self.movements if
                                                 instr.destination == instruction.destination]
             for instr in instructions_to_same_destination:
                 instr.instruction_type = InstructionType.SKIRMISH
@@ -560,7 +565,7 @@ class InstructionSet:
             instruction.instruction_type = InstructionType.INVASION
             try:
                 mutual_invasion = [
-                    instr for instr in self.instructions
+                    instr for instr in self.movements
                     if instr.issuer == instruction.destination.owner and instr.destination == instruction.origin
                 ][0]
                 instruction.mutual_invasion = mutual_invasion
@@ -573,7 +578,9 @@ class InstructionSet:
         """Make sure that each Instruction is registered as being in this InstructionSet."""
         for instruction in self.instructions:
             instruction.instruction_set = self
-            self.set_instruction_type(instruction)
+
+            if isinstance(instruction, Movement):
+                self.set_movement_type(instruction)
 
 
 class InstructionType(Enum):
