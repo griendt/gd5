@@ -17,8 +17,6 @@
 \usepackage{marginnote}
 \usepackage{tcolorbox}
 
-\usepackage{emoji}
-
 % a new counter for use in margin notes
 \newcounter{sidenote}
 \newcommand{\sidenote}[1]{
@@ -63,13 +61,13 @@
 \maketitle
 
 \begin{center}
-\texttt{v0.3}
+\texttt{v1.2.0}
 \end{center}
 
 \begin{warn}
 	\center{\textbf{Do not be alarmed by the length of this text!}}
 	\tcblower 
-	If you are new to Global Domation, please \textbf{do not read all the rules} in one go! You will get confused.
+	If you are new to Global Domination, please \textbf{do not read all the rules} in one go! You will get confused.
 	\begin{itemize}
 		\item To understand the game, read only the rules labeled according to the $x.y$ pattern.
 		\item To learn more about a given rule or see its edge cases, exceptions and such, read the rules labeled in the $x.y.z$ pattern. These rules only exist to ensure proper game flow and prevent discussions so that I (the host) can remain as neutral as possible.
@@ -204,6 +202,7 @@ In the \term{Inventory Phase}, if a player fulfills the requirements, he may pur
 \section{Battle Phase}\label{sec:battle}
 \begin{enumerate}
 	\item When two or more players attempt to \term{expand} into the same territory, these movements are considered to be in a \term{Skirmish}.
+	\item When two players attempt to invade each other's territories directly at the same time ($\texttt{A} \to \texttt{B}$ and $\texttt{B} \to \texttt{A}$), these two attacks are considered to be in a \term{Skirmish} as well.
 	\item When one player attempts to \term{expand} into a territory occupied by another player, this is considered an \term{Invasion}.
 	\item Whenever relevant, \term{Skirmishes} are resolved before \term{Invasions}.
 	\item If a player \term{expands} to a target territory from multiple origin territories (such as $\texttt{A} \to \texttt{C}$ and $\texttt{B} \to \texttt{C}$, where $\texttt{A}$ and $\texttt{B}$ belong to the same player), and these \term{Expansions} are to be resolved at the same time, then all involved units in these \term{Expansions} are considered as \textbf{one} combined army. This may allow players to overtake a territory using two lands which could not be overtaken with either land on their own.
@@ -242,7 +241,7 @@ In the \term{Inventory Phase}, if a player fulfills the requirements, he may pur
 	\item \label{rule:neutralization}A territory can be rendered neutral if the attacking player has defeated all units in the target territory, but has no units remaining to occupy it.
 	\item A territory is overtaken if all units stationed in the target territory are destroyed, and the attacker has units left in the attack to occupy it.
   \item Any remaining \term{Trebuchets} or \term{Bivouacs} in a neutralized or overtaken territory will be destroyed during the attack.
-	\item \term{Sieges} to a given enemy territory occur before any \term{Invasion} to that territory.
+	\item Whenever relevant, \term{Sieges} to a territory are done prior to any \term{Invasion} or \term{Skirmish} occurring in/for that territory.
 	\item In case of a circular loop of \term{Invasions} (for example. $\texttt{A} \to \texttt{B} \to \texttt{C} \to \texttt{A}$), the territory with the lowest ID will perform their \term{Invasion} first. This will break the loop, after which the order of \term{Invasions} can be determined normally.
 	% \item An \term{Archer} unit may, instead of moving into enemy territory causing an \term{Invasion}, decide to \term{Siege} a neighbouring enemy territory. This is also an attack, but the \term{Archer} unit does not move.
 	% \item For each \term{Archer} that \term{Sieges} an enemy territory, the enemy territory loses \num{0.5} military unit, rounded down, in the \textbf{reverse} order as specified in rule \ref{rule:order-military}. So, with \num{5} \term{Archers} it is possible to kill \num{2} enemy \term{Archers} by \term{Siege}.
@@ -255,6 +254,7 @@ In the \term{Inventory Phase}, if a player fulfills the requirements, he may pur
 	\item A \term{Trebuchet} may be ordered to \term{Siege} a neighbouring territory. However, it may do so \emph{only} if it has not been moved or built this same \term{Turn}.
 	\begin{enumerate}
 		\item \label{rule:trebuchet-kill}The \term{Trebuchet} will kill \num{2} enemy units.
+		\item A \term{Trebuchet} may \term{Siege} only once per \term{Turn}.
 	\item If a \term{Trebuchet} sieges a territory containing a \term{Fortress}, you may decide whether to slay \num{2} enemy units as per rule \ref{rule:trebuchet-kill}, or instead target the walls of the \term{Fortress}, breaking it down and turning it into a \term{Ruin}. If not specified in the order, the \term{Trebuchet} will target the \term{Fortress} by default.
 	\end{enumerate}
 
