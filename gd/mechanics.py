@@ -65,13 +65,15 @@ class Turn:
             case phase.NATURAL:
                 if constructions := [i for i in instructions if isinstance(i, CreateHeadquarter)]:
                     self.instruction_sets[Phase.CONSTRUCTION].append(InstructionSet(instructions=constructions))
+            case phase.GENERATION:
+                if generations := [i for i in instructions if isinstance(i, SpawnTroops)]:
+                    self.instruction_sets[Phase.GENERATION].append(InstructionSet(instructions=generations))
             case phase.MOVEMENT:
-                if distributions := [i for i in instructions if
-                                     isinstance(i, Movement) and i.origin.owner == i.destination.owner]:
+                if distributions := [i for i in instructions if isinstance(i, Movement) and i.origin.owner == i.destination.owner]:
                     self.instruction_sets[Phase.MOVEMENT].append(InstructionSet(instructions=distributions))
             case phase.BATTLE:
                 self.register_battle_phase(instructions)
-            case phase.CONSTRUCTION | phase.GENERATION | phase.FINAL:
+            case phase.CONSTRUCTION | phase.FINAL:
                 # Not yet implemented, or nothing to be done
                 pass
             case _:
