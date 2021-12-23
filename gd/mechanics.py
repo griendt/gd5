@@ -160,10 +160,10 @@ class CreateHeadquarter(Instruction):
     territory: Territory
     world: World
 
-    def __init__(self, issuer: Player, territory: Territory, world: World, instruction_set: InstructionSet = None):
+    def __init__(self, issuer: Player, territory: Territory, instruction_set: InstructionSet = None):
         super().__init__(issuer=issuer, instruction_set=instruction_set)
         self.territory = territory
-        self.world = world
+        self.world = territory.world
         self.instruction_type = InstructionType.CREATE_HEADQUARTER
 
     def assert_is_valid(self) -> None:
