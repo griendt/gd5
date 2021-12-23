@@ -21,7 +21,7 @@ from gd.excepts import (
     InstructionNoSkirmishingInstructions,
     InvalidInstructionType,
     IssuerDoesNotOwnTerritory,
-    TargetTerritoryNotAdjacent,
+    TargetTerritoryNotAdjacent, SpawnNotInHeadquarter,
 )
 from gd.logger import logger
 from gd.world import Player, Territory, World, Headquarter, Troop
@@ -199,6 +199,36 @@ class CreateHeadquarter(Instruction):
             Troop(territory=self.territory)
 
         self.is_executed = True
+
+        return self
+
+
+class SpawnTroops(Instruction):
+    num_troops: int
+    territory: Territory
+
+    def __init__(self, issuer: Player, territory: Territory, num_troops: int = 3):
+        super().__init__(issuer=issuer)
+        self.territory = territory
+        self.num_troops = num_troops
+
+    def __str__(self) -> str:
+        return f"Spawn Troops (issuer={self.issuer.name}, id={self.territory.id}"
+
+    def assert_is_valid(self) -> None:
+        if self.territory not in self.issuer.owned_territories:
+            raise IssuerDoesNotOwnTerritory()
+
+        if not (territories_with_hq := {t for t in self.issuer.owned_territories if t.has_construct(Headquarter)}):
+            logger.debug("Issuer has no Headquarter, hence may spawn here")
+            return
+
+        if self.territory not in territories_with_hq:
+            raise SpawnNotInHeadquarter()
+
+    def execute(self) -> Instruction:
+        for _ in range(self.num_troops):
+            Troop(territory=self.territory)
 
         return self
 

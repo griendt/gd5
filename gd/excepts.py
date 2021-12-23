@@ -11,6 +11,11 @@ class IssuerDoesNotOwnTerritory(InstructionException):
     pass
 
 
+class SpawnNotInHeadquarter(InstructionException):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Issuer must spawn in one of their Headquarters, but the given Territory contains no Headquarter", *args, **kwargs)
+
+
 class TargetTerritoryNotAdjacent(InstructionException):
     pass
 
