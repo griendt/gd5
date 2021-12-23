@@ -188,6 +188,8 @@ class CreateHeadquarter(Instruction):
         for _ in range(NUM_TROOPS_START):
             Troop(territory=self.territory)
 
+        self.is_executed = True
+
         return self
 
 
