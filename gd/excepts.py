@@ -7,6 +7,14 @@ class InvalidInstruction(InstructionException):
     pass
 
 
+class IssuerDoesNotOwnTerritory(InstructionException):
+    pass
+
+
+class TargetTerritoryNotAdjacent(InstructionException):
+    pass
+
+
 class InstructionAlreadyExecuting(InstructionException):
     def __init__(self, *args, **kwargs):
         super().__init__("Instruction already executing", *args, **kwargs)

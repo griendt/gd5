@@ -14,16 +14,17 @@ from gd.excepts import (
     TerritoryNotNeutral,
     IssuerAlreadyPresentInWorld,
     AdjacentTerritoryNotEmpty,
-    InvalidInstruction,
     InstructionAlreadyExecuting,
     UnwindingLoopedInstructions,
     InsufficientUnitsException,
     InstructionNotInInstructionSet,
     InstructionNoSkirmishingInstructions,
     InvalidInstructionType,
+    IssuerDoesNotOwnTerritory,
+    TargetTerritoryNotAdjacent,
 )
-from gd.world import Player, Territory, World, Headquarter, Troop
 from gd.logger import logger
+from gd.world import Player, Territory, World, Headquarter, Troop
 
 # Amount of troops to start out with when entering the world.
 NUM_TROOPS_START = 5
@@ -246,7 +247,7 @@ class Movement(Instruction):
         to the world map."""
         if self.origin.owner != self.issuer:
             logger.error('Invalid instruction: issuer is not the origin owner')
-            raise InvalidInstruction("Issuer is not the origin owner")
+            raise IssuerDoesNotOwnTerritory("Issuer is not the origin owner")
 
         if self._num_troops > (troops_in_origin := len({unit for unit in self.origin.all(Troop)})):
             if self._allow_insufficient_troops:
@@ -255,10 +256,10 @@ class Movement(Instruction):
             else:
                 logger.error(
                     f'Invalid instruction: insufficient troops in origin territory: {self._num_troops} requested, {troops_in_origin} found')
-                raise InvalidInstruction("Insufficient troops in origin territory")
+                raise InsufficientUnitsException(Troop, self._num_troops)
 
         if self.destination not in self.origin.adjacent_territories:
-            raise InvalidInstruction("Destination is not linked to the origin")
+            raise TargetTerritoryNotAdjacent("Destination is not linked to the origin")
 
         logger.debug('Instruction is valid')
 

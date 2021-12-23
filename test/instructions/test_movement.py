@@ -1,8 +1,13 @@
 import unittest
 
-from gd.excepts import InvalidInstruction, InstructionAlreadyExecuted
-from test.case import TestCase
+from gd.excepts import (
+    InstructionAlreadyExecuted,
+    TargetTerritoryNotAdjacent,
+    InsufficientUnitsException,
+    IssuerDoesNotOwnTerritory,
+)
 from gd.mechanics import Phase, Turn, Movement, InstructionSet
+from test.case import TestCase
 
 
 class MovementTest(TestCase):
@@ -13,7 +18,7 @@ class MovementTest(TestCase):
 
         order = Movement(issuer=p1, origin=t1, destination=t2, num_troops=1)
 
-        with self.assertRaises(InvalidInstruction):
+        with self.assertRaises(IssuerDoesNotOwnTerritory):
             order.assert_is_valid()
 
     def test_moving_all_units_away_keeps_the_origin_owner_the_same(self):
@@ -40,16 +45,16 @@ class MovementTest(TestCase):
         self.generate_troops({t1: 1})
         order = Movement(issuer=p1, origin=t1, destination=t2, num_troops=2)
 
-        with self.assertRaises(InvalidInstruction):
+        with self.assertRaises(InsufficientUnitsException):
             order.assert_is_valid()
 
     def test_movement_to_non_adjacent_territory_is_invalid(self):
         p1, = self.generate_players(1)
         t1, t2 = self.generate_territories(owners=[p1], complete_graph=False)
-        self.generate_troops({t1: 1})
+        self.generate_troops({t1: 2})
         order = Movement(issuer=p1, origin=t1, destination=t2, num_troops=2)
 
-        with self.assertRaises(InvalidInstruction):
+        with self.assertRaises(TargetTerritoryNotAdjacent):
             order.assert_is_valid()
 
     def test_movement_can_be_executed_only_once(self):
@@ -311,9 +316,9 @@ class MovementTest(TestCase):
         # 4 minutes 2 and 1 from distributions, then overtaken with 1 troop left, then final troop dies in follow-up invasion
         self.assertTerritoryHasTroops(t2, 0)
         self.assertTerritoryOwner(t2, p1)
-        self.assertTerritoryHasTroops(t3, 11)   # 10 plus 1 from distribution
+        self.assertTerritoryHasTroops(t3, 11)  # 10 plus 1 from distribution
         self.assertTerritoryOwner(t3, p2)
-        self.assertTerritoryHasTroops(t4, 2)    # 0 plus 2 from expansion
+        self.assertTerritoryHasTroops(t4, 2)  # 0 plus 2 from expansion
         self.assertTerritoryOwner(t4, p2)
 
 
