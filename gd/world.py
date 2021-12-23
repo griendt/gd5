@@ -52,6 +52,7 @@ class Biome:
 
 LandBiome = Biome(type="Land", color="yellow")
 WaterBiome = Biome(type="Water", color="blue")
+WastelandBiome = Biome(type="Wasteland", color="gray")
 
 
 @dataclass
