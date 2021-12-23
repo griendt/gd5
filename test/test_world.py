@@ -57,9 +57,9 @@ class WorldTest(TestCase):
 
         self.assertFalse(t.is_empty())
 
-    def test_player_initialization_requires_only_name(self):
+    def test_player_initialization_requires_only_name_and_world(self):
         """A player can be initialized only by name; other fields should have default values."""
-        player = Player(name=name())
+        player = Player(name=name(), world=World())
 
         self.assertEqual("", player.description)
         self.assertEqual(0, player.influence_points)
@@ -67,7 +67,7 @@ class WorldTest(TestCase):
     def test_player_names_cannot_be_reassigned(self):
         """A player, once initialized, cannot change his name. This is a requirement due to
         the fact that player hashing goes by name."""
-        player = Player(name=name())
+        player = Player(name=name(), world=World())
 
         while True:
             new_name = name()

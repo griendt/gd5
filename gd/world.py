@@ -22,6 +22,7 @@ world = World()
 @dataclass
 class Player:
     name: str
+    world: World
 
     id: int = None
     next_id = count(1)
@@ -40,6 +41,10 @@ class Player:
             raise AttributeError("Cannot re-assign player names")
 
         object.__setattr__(self, key, value)
+
+    def owned_territories(self) -> set[Territory]:
+        return {territory for territory in self.world.territories.values() if territory.owner == self}
+
 
 @dataclass
 class Biome:
