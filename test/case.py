@@ -58,9 +58,8 @@ class TestCase(unittest.TestCase):
 
         return territories
 
-    @staticmethod
-    def generate_players(amount: int = 2) -> list[Player]:
-        return [Player(name=generate_name()) for _ in range(amount)]
+    def generate_players(self, amount: int = 2) -> list[Player]:
+        return [Player(name=generate_name(), world=self.world) for _ in range(amount)]
 
     @staticmethod
     def generate_troops(troops_by_territory: dict[Territory, int]) -> None:
