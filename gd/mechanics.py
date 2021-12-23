@@ -43,7 +43,7 @@ class Phase(Enum):
 class Turn:
     instruction_sets: dict[Phase, list[InstructionSet]] = field(default_factory=lambda: list())
 
-    def __init__(self, instructions: list[Instruction]):
+    def __init__(self, instructions: list[Instruction], is_initial=True):
         # Here, we will decide which instructions should go in which instruction set.
         # In principle, there should be only one instruction set for each Phase, unless there are Instructions
         # that are _conditional_, i.e. may or may not be executed depending on the outcome of previous ones
@@ -116,7 +116,7 @@ class Turn:
             for instruction_set in instruction_sets:
                 turn_info += '\n    '
                 for instruction in instruction_set.instructions:
-                    turn_info += ' - ' + instruction.repr_arrow() + '\n    '
+                    turn_info += f' - {instruction}\n   '
             logger.info(f'[yellow]Processing phase {phase} with following instructions[/yellow]:{turn_info}')
 
             for instruction_set in instruction_sets:
@@ -158,6 +158,9 @@ class Instruction:
     def execute(self) -> Instruction:
         raise NotImplementedError
 
+    def __str__(self) -> str:
+        raise NotImplementedError
+
 
 class CreateHeadquarter(Instruction):
     territory: Territory
@@ -168,6 +171,9 @@ class CreateHeadquarter(Instruction):
         self.territory = territory
         self.world = territory.world
         self.instruction_type = InstructionType.CREATE_HEADQUARTER
+
+    def __str__(self) -> str:
+        return f"Create Headquarter (issuer={self.issuer.name}, id={self.territory.id})"
 
     def assert_is_valid(self) -> None:
         if not self.territory.is_neutral():
@@ -221,7 +227,7 @@ class Movement(Instruction):
     def __hash__(self):
         return hash(self.id)
 
-    def repr_arrow(self) -> str:
+    def __str__(self) -> str:
         return (
                 f'{{id={self.id}, issuer={self.issuer.name}}} (id={self.origin.id}, owner={self.origin.owner.name}, troops={len(self.origin.all(Troop))})-[{self._num_troops - self._num_troops_moved}/{self._num_troops}]->' +
                 f'(id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})'
@@ -266,7 +272,7 @@ class Movement(Instruction):
             if instruction.origin == self.destination and not instruction.is_executed
         ]:
             logger.info(f"This invasion has superseding movements:\n  - " + "\n  - ".join(
-                [invasion.repr_arrow() for invasion in higher_priority_movements]))
+                [str(invasion) for invasion in higher_priority_movements]))
             try:
                 for instruction in higher_priority_movements:
                     instruction.execute()
@@ -282,7 +288,7 @@ class Movement(Instruction):
                 if isinstance(exception, InstructionAlreadyExecuting):
                     # Only print some useful logging when first encountering the loop, to avoid clutter during unwinding.
                     logger.info(f"Found circular set of instructions\n  - " + "\n  - ".join(
-                        [instruction.repr_arrow() for instruction in self.instruction_set.instructions if
+                        [str(instruction) for instruction in self.instruction_set.instructions if
                          instruction.is_executing]
                     ))
                     logger.info(f"The chosen origin id to be executed from is {first_origin_id}")
@@ -363,10 +369,10 @@ class Movement(Instruction):
         belongs to a different player, and hence they can be treated as individual armies. Note that two
         Instructions with the same destination can belong to the same player and they will be treated as
         two separate armies; however, those two armies do not skirmish."""
-        logger.debug(f'{self.repr_arrow()} has skirmishes with:')
+        logger.debug(f'{self} has skirmishes with:')
         logger.indents += 1
         for skirmish in skirmishes:
-            logger.debug(f'- {skirmish.repr_arrow()}')
+            logger.debug(f'- {skirmish}')
         logger.indents -= 1
         issuers = {instruction.issuer for instruction in skirmishes}
         issuers.add(self.issuer)
@@ -458,7 +464,7 @@ class Movement(Instruction):
         if self.is_executed:
             raise InstructionAlreadyExecuted()
 
-        logger.info(f'[blue]Executing[/blue]: {self.repr_arrow()}')
+        logger.info(f'[blue]Executing[/blue]: {self}')
 
         self.is_executing = True
         self.assert_is_valid()
@@ -510,7 +516,7 @@ class Movement(Instruction):
             ]:
                 logger.info(
                     f"This instruction was part of a loop; resolving instructions from target:\n  - " + "\n  - ".join(
-                        [instruction.repr_arrow() for instruction in instructions_from_target]))
+                        [str(instruction) for instruction in instructions_from_target]))
 
             for instruction in instructions_from_target:
                 instruction.allow_insufficient_troops().execute()
