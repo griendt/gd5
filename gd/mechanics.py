@@ -64,7 +64,7 @@ class Turn:
         match phase:
             case phase.NATURAL:
                 if constructions := [i for i in instructions if isinstance(i, CreateHeadquarter)]:
-                    self.instruction_sets[Phase.CONSTRUCTION].append(InstructionSet(instructions=constructions))
+                    self.instruction_sets[Phase.NATURAL].append(InstructionSet(instructions=constructions))
             case phase.GENERATION:
                 if generations := [i for i in instructions if isinstance(i, SpawnTroops)]:
                     self.instruction_sets[Phase.GENERATION].append(InstructionSet(instructions=generations))
@@ -115,13 +115,13 @@ class Turn:
             self.instruction_sets[Phase.BATTLE].append(instruction_set)
 
     def execute(self) -> Turn:
-        turn_info = ''
         for phase, instruction_sets in self.instruction_sets.items():
+            phase_info = ''
             for instruction_set in instruction_sets:
-                turn_info += '\n    '
+                phase_info += '\n   '
                 for instruction in instruction_set.instructions:
-                    turn_info += f' - {instruction}\n   '
-            logger.info(f'[yellow]Processing phase {phase} with following instructions[/yellow]:{turn_info}')
+                    phase_info += f' - {instruction}\n   '
+            logger.info(f'[yellow]Processing phase {phase} with following instructions[/yellow]:{phase_info}')
 
             for instruction_set in instruction_sets:
                 for instruction in instruction_set.instructions:
@@ -215,7 +215,7 @@ class SpawnTroops(Instruction):
         self.num_troops = num_troops
 
     def __str__(self) -> str:
-        return f"Spawn Troops (issuer={self.issuer.name}, id={self.territory.id}"
+        return f"Spawn Troops (issuer={self.issuer.name}, id={self.territory.id})"
 
     def assert_is_valid(self) -> None:
         if self.territory not in self.issuer.owned_territories:
@@ -232,6 +232,7 @@ class SpawnTroops(Instruction):
         for _ in range(self.num_troops):
             Troop(territory=self.territory)
 
+        self.is_executed = True
         return self
 
 
