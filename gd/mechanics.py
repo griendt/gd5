@@ -32,6 +32,8 @@ NUM_TROOPS_START = 5
 # Amount of troops penalty by default when invading another player's territory.
 NUM_INVASION_PENALTY = 2
 
+# How many IP it costs to spawn bonus troops per turn.
+BONUS_TROOP_IP_COST = 10
 
 class Phase(Enum):
     NATURAL = 1
@@ -53,7 +55,7 @@ class Turn:
         # In addition, all non-battle movements should be separated from the battle movements, so as to make
         # sure those movements all occur first.
 
-        self.instruction_sets = defaultdict(lambda: [])
+        self.instruction_sets = defaultdict(list)
         instructions = set(instructions)
 
         for phase in Phase:
@@ -126,6 +128,7 @@ class Turn:
             for instruction_set in instruction_sets:
                 for instruction in instruction_set.instructions:
                     try:
+                        instruction.assert_is_valid()
                         instruction.execute()
                     except InstructionAlreadyExecuted:
                         # Another Instruction may have already caused this Instruction to be executed.
@@ -190,7 +193,7 @@ class CreateHeadquarter(Instruction):
                 raise IssuerAlreadyPresentInWorld()
 
         for territory in self.territory.adjacent_territories:
-            if not territory.is_empty():
+            if not territory.is_empty() and territory.owner.name != 'Barbarian':
                 raise AdjacentTerritoryNotEmpty()
 
     def execute(self) -> CreateHeadquarter:
@@ -215,7 +218,7 @@ class SpawnTroops(Instruction):
         self.num_troops = num_troops
 
     def __str__(self) -> str:
-        return f"Spawn Troops (issuer={self.issuer.name}, id={self.territory.id})"
+        return f"Spawn Troops (issuer={self.issuer.name}, id={self.territory.id}, num_troops={self.num_troops})"
 
     def assert_is_valid(self) -> None:
         if self.territory not in self.issuer.owned_territories:
@@ -234,6 +237,28 @@ class SpawnTroops(Instruction):
 
         self.is_executed = True
         return self
+
+
+class SpawnBonusTroops(SpawnTroops):
+    """At the cost of 10IP, a Player can decide to spawn additional troops."""
+    num_troops: int
+    territory: Territory
+
+    def __init__(self, issuer: Player, territory: Territory, num_troops: int = 2):
+        super().__init__(issuer=issuer, territory=territory, num_troops=num_troops)
+
+    def __str__(self) -> str:
+        return f"Spawn Bonus Troops (issuer={self.issuer.name}, id={self.territory.id}, num_troops={self.num_troops})"
+
+    def assert_is_valid(self) -> None:
+        if self.issuer.influence_points < BONUS_TROOP_IP_COST:
+            raise InsufficientInfluencePoints()
+
+        super().assert_is_valid()
+
+    def execute(self) -> Instruction:
+        self.issuer.influence_points -= 10
+        return super().execute()
 
 
 class Movement(Instruction):
@@ -266,7 +291,7 @@ class Movement(Instruction):
 
     def __str__(self) -> str:
         return (
-                f'{{id={self.id}, issuer={self.issuer.name}}} (id={self.origin.id}, owner={self.origin.owner.name}, troops={len(self.origin.all(Troop))})-[{self._num_troops - self._num_troops_moved}/{self._num_troops}]->' +
+                f'{{id={self.id}, issuer={self.issuer.name}}} (id={self.origin.id}, owner={self.origin.owner.name if self.origin.owner else None}, troops={len(self.origin.all(Troop))})-[{self._num_troops - self._num_troops_moved}/{self._num_troops}]->' +
                 f'(id={self.destination.id}, {self.destination.owner.name if self.destination.owner else None}, troops={len(self.destination.all(Troop))})'
         )
 
