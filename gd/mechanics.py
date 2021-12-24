@@ -7,21 +7,23 @@ from enum import Enum
 from itertools import count
 
 from gd.excepts import (
-    UnknownPhase,
-    InstructionSetNotConstructible,
-    InstructionAlreadyExecuted,
-    InstructionNotExecuted,
-    TerritoryNotNeutral,
-    IssuerAlreadyPresentInWorld,
     AdjacentTerritoryNotEmpty,
+    InstructionAlreadyExecuted,
     InstructionAlreadyExecuting,
-    UnwindingLoopedInstructions,
-    InsufficientUnitsException,
-    InstructionNotInInstructionSet,
+    InstructionNotExecuted,
     InstructionNoSkirmishingInstructions,
+    InstructionNotInInstructionSet,
+    InstructionSetNotConstructible,
+    InsufficientInfluencePoints,
+    InsufficientUnitsException,
     InvalidInstructionType,
+    IssuerAlreadyPresentInWorld,
     IssuerDoesNotOwnTerritory,
-    TargetTerritoryNotAdjacent, SpawnNotInHeadquarter,
+    SpawnNotInHeadquarter,
+    TargetTerritoryNotAdjacent,
+    TerritoryNotNeutral,
+    UnwindingLoopedInstructions,
+    UnknownPhase,
 )
 from gd.logger import logger
 from gd.world import Player, Territory, World, Headquarter, Troop
@@ -71,7 +73,10 @@ class Turn:
                 if generations := [i for i in instructions if isinstance(i, SpawnTroops)]:
                     self.instruction_sets[Phase.GENERATION].append(InstructionSet(instructions=generations))
             case phase.MOVEMENT:
-                if distributions := [i for i in instructions if isinstance(i, Movement) and i.origin.owner == i.destination.owner]:
+                if distributions := [
+                    i for i in instructions
+                    if isinstance(i, Movement) and (i.origin.owner is None or i.issuer == i.origin.owner == i.destination.owner)
+                ]:
                     self.instruction_sets[Phase.MOVEMENT].append(InstructionSet(instructions=distributions))
             case phase.BATTLE:
                 self.register_battle_phase(instructions)
