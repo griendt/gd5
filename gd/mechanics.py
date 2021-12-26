@@ -24,6 +24,7 @@ from gd.excepts import (
     TerritoryNotNeutral,
     UnwindingLoopedInstructions,
     UnknownPhase,
+    MovementsNotChained,
 )
 from gd.logger import logger
 from gd.world import Player, Territory, World, Headquarter, Troop
@@ -49,17 +50,23 @@ class Phase(Enum):
 class Turn:
     instruction_sets: dict[Phase, list[InstructionSet]] = field(default_factory=lambda: list())
 
-    def __init__(self, instructions: list[Instruction], is_initial=True):
+    def __init__(self, instructions: list[Instruction | MovementChain], is_initial=True):
         # Here, we will decide which instructions should go in which instruction set.
         # In principle, there should be only one instruction set for each Phase, unless there are Instructions
         # that are _conditional_, i.e. may or may not be executed depending on the outcome of previous ones
         # within the same Phase. Those instructions should, logically, be applied only in a later InstructionSet.
-        # In addition, all non-battle movements should be separated from the battle movements, so as to make
+        # In addition, all non-battle movements should be separated from the battle movements, to make
         # sure those movements all occur first.
+        for instruction in instructions:
+            if isinstance(instruction, MovementChain):
+                # Unwrap the MovementChain in its underlying Movements.
+                instruction.assert_is_valid()
+                instructions += instruction.movements
+
+        # Filter out any MovementChains from the argument, as they are already unwrapped and we don't need them anymore.
+        instructions = {instruction for instruction in instructions if isinstance(instruction, Instruction)}
 
         self.instruction_sets = defaultdict(list)
-        instructions = set(instructions)
-
         for phase in Phase:
             self.register(phase, instructions)
             instructions = {instruction for instruction in instructions if not instruction.instruction_set}
@@ -269,6 +276,40 @@ class SpawnBonusTroops(SpawnTroops):
         return super().execute()
 
 
+class MovementChain:
+    movements: list[Movement]
+    world: World
+
+    """Convenience class to quickly define a chain of movements by the same Player.
+    An entry in origin_num_destinations is a tuple of three integers: the origin territory ID,
+    the amount of Troops moving, and the destination territory ID.
+    """
+    def __init__(self, issuer: Player, world: World, origin_num_destinations: list[tuple[int, int, int]]):
+        self.issuer = issuer
+        self.world = world
+        self.movements = []
+
+        for (origin, num_troops, destination) in origin_num_destinations:
+            self.movements.append(Movement(
+                issuer=self.issuer,
+                origin=self.world.territories[origin],
+                destination=self.world.territories[destination],
+                num_troops=num_troops,
+                instruction_set=None
+            ))
+
+    def assert_is_valid(self) -> None:
+        for index, movement in enumerate(self.movements):
+            if index == 0:
+                continue
+
+            if movement.origin != self.movements[index - 1].destination:
+                raise MovementsNotChained()
+
+            if movement.issuer != self.movements[index - 1].issuer:
+                raise
+
+
 class Movement(Instruction):
     """A basic order is invoked by someone and concerns the movement
     of some units from an origin to a destination."""
@@ -282,8 +323,7 @@ class Movement(Instruction):
     _num_troops: int = 0
     _num_troops_moved: int = 0
 
-    def __init__(self, issuer: Player, origin: Territory, destination: Territory, num_troops: int = 0,
-                 instruction_set: InstructionSet = None):
+    def __init__(self, issuer: Player, origin: Territory, destination: Territory, num_troops: int = 0, instruction_set: InstructionSet = None):
         super().__init__(issuer=issuer, instruction_set=instruction_set)
         self.origin = origin
         self.destination = destination

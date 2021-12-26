@@ -87,3 +87,8 @@ class TerritoryNotNeutral(InstructionException):
 class UnknownPhase(Exception):
     def __init__(self, phase, *args, **kwargs):
         super().__init__(f"Unknown phase type: {phase}", *args, **kwargs)
+
+
+class MovementsNotChained(Exception):
+    def __init__(self):
+        super().__init__("Origins and destinations of given movements are not chained")
