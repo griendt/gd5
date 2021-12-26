@@ -5,6 +5,7 @@ from collections import defaultdict
 from dataclasses import field, dataclass
 from enum import Enum
 from itertools import count
+from typing import Optional
 
 from gd.excepts import (
     AdjacentTerritoryNotEmpty,
@@ -38,6 +39,7 @@ NUM_INVASION_PENALTY = 2
 # How many IP it costs to spawn bonus troops per turn.
 BONUS_TROOP_IP_COST = 10
 
+
 class Phase(Enum):
     NATURAL = 1
     GENERATION = 2
@@ -48,7 +50,7 @@ class Phase(Enum):
 
 
 class Turn:
-    instruction_sets: dict[Phase, list[InstructionSet]] = field(default_factory=lambda: list())
+    instruction_sets: dict[Phase, list[InstructionSet]]
 
     def __init__(self, instructions: list[Instruction | MovementChain], is_initial=True):
         # Here, we will decide which instructions should go in which instruction set.
@@ -57,6 +59,8 @@ class Turn:
         # within the same Phase. Those instructions should, logically, be applied only in a later InstructionSet.
         # In addition, all non-battle movements should be separated from the battle movements, to make
         # sure those movements all occur first.
+        self.instruction_sets = defaultdict(list)
+
         for instruction in instructions:
             if isinstance(instruction, MovementChain):
                 # Unwrap the MovementChain in its underlying Movements.
@@ -66,7 +70,6 @@ class Turn:
         # Filter out any MovementChains from the argument, as they are already unwrapped and we don't need them anymore.
         instructions = {instruction for instruction in instructions if isinstance(instruction, Instruction)}
 
-        self.instruction_sets = defaultdict(list)
         for phase in Phase:
             self.register(phase, instructions)
             instructions = {instruction for instruction in instructions if not instruction.instruction_set}
@@ -277,17 +280,23 @@ class SpawnBonusTroops(SpawnTroops):
 
 
 class MovementChain:
-    movements: list[Movement]
-    world: World
-
     """Convenience class to quickly define a chain of movements by the same Player.
     An entry in origin_num_destinations is a tuple of three integers: the origin territory ID,
     the amount of Troops moving, and the destination territory ID.
     """
-    def __init__(self, issuer: Player, world: World, origin_num_destinations: list[tuple[int, int, int]]):
+
+    # TODO: convenience for sorting the movement order when evaluating.
+    #  Seems no issue now because evaluation uses the same order?
+
+    movements: list[Movement]
+    world: World
+
+    def __init__(self, issuer: Player, origin_num_destinations: list[tuple[int, int, int]], world: World = None):
         self.issuer = issuer
-        self.world = world
         self.movements = []
+
+        if world:
+            self.world = world
 
         for (origin, num_troops, destination) in origin_num_destinations:
             self.movements.append(Movement(
@@ -391,7 +400,7 @@ class Movement(Instruction):
         # First, we need to check whether the target territory is also moving to a (third) territory in this set.
         # If so, that invasion must be resolved first.
         if higher_priority_movements := [
-            instruction for instruction in self.instruction_set.instructions
+            instruction for instruction in self.instruction_set.movements
             if instruction.origin == self.destination and not instruction.is_executed
         ]:
             logger.info(f"This invasion has superseding movements:\n  - " + "\n  - ".join(
@@ -404,8 +413,7 @@ class Movement(Instruction):
                 # and take the one with the lowest origin territory number. As a tie-breaker, that one will be
                 # used to resolve the circle first.
 
-                first_origin_id = min([instruction.origin.id for instruction in self.instruction_set.instructions if
-                                       instruction.is_executing])
+                first_origin_id = min([instruction.origin.id for instruction in self.instruction_set.movements if instruction.is_executing])
                 self._is_part_of_loop = True
 
                 if isinstance(exception, InstructionAlreadyExecuting):
@@ -431,57 +439,63 @@ class Movement(Instruction):
                 # Hence, set their flag back to False so they can be processed as a normal chain.
                 instruction.is_executing = False
 
+        # Perhaps other invasions are also being done by the same player to the same target.
+        # We should incur the 2-Troop penalty only once in this situation and combine all troops, as if
+        # it was only one movement.
+        combined_invasions = [
+            instruction for instruction in self.instruction_set.movements
+            if (
+                instruction.destination == self.destination
+                and instruction.issuer == self.issuer
+                and not instruction == self
+                and not instruction.is_executed
+            )
+        ]
+
+        # Remove the to-be-moved troops from the origin(s), and store how many could be taken in total.
+        # This will be the amount that we will be moving to the target. This will also resolve the invasion
+        # for the other instructions.
+        total_troops_to_attack = self.origin.remove_unit(Troop, self._num_troops - self._num_troops_moved, self._allow_insufficient_troops)
+        for combined_invasion in combined_invasions:
+            total_troops_to_attack += combined_invasion.origin.remove_unit(Troop, combined_invasion._num_troops - combined_invasion._num_troops_moved)
+            combined_invasion.is_executed = True
+
         # Apply the 2-Troop penalty to the attacker.
         is_mutual_invasion = self.mutual_invasion and not self.mutual_invasion.is_executed
         should_incur_penalty = not (self.mutual_invasion and self.mutual_invasion.is_executed)
         if should_incur_penalty:
             origin_penalty = 0
             destination_penalty = 0
-            try:
-                for _ in range(NUM_INVASION_PENALTY):
-                    self.origin.remove_unit(Troop)
-                    origin_penalty += 1
-                    if is_mutual_invasion:
-                        self.destination.remove_unit(Troop)
-                        destination_penalty += 1
-                    self._num_troops_moved += 1
-            except InsufficientUnitsException as e:
-                if not self._allow_insufficient_troops:
-                    raise e
+            for _ in range(NUM_INVASION_PENALTY):
+                total_troops_to_attack -= 1
+                origin_penalty += 1
+                if is_mutual_invasion:
+                    self.destination.remove_unit(Troop)
+                    destination_penalty += 1
+                self._num_troops_moved += 1
 
             logger.debug(f'Applied {origin_penalty} troop penalty to the invader')
             if is_mutual_invasion:
                 logger.info(f'Also applied {destination_penalty} troop penalty to the target due to mutual invasion')
 
-        while self._num_troops > self._num_troops_moved:
-            # Remove a troop from both sides in an equal ratio, as long as this is possible
-            # and we still have troops to move.
-            if self.origin.all(Troop) and self.destination.all(Troop):
-                self.origin.remove_unit(Troop, 1, self._allow_insufficient_troops)
+        while total_troops_to_attack > 0:
+            # Remove a troop from both sides in an equal ratio, as long as this is possible and we still have troops to move.
+            if self.destination.all(Troop):
+                total_troops_to_attack -= 1
                 self.destination.remove_unit(Troop, 1, self._allow_insufficient_troops)
             else:
-                # Either army is completely exhausted.
-                # The battle ends.
+                # Either army is completely exhausted. The battle ends.
                 logger.debug(
                     f'At least one army is completely exhausted; the battle ends after {self._num_troops_moved} of requested {self._num_troops} invaders have been killed')
                 break
 
-            self._num_troops_moved += 1
-
         # Determine whether the attacker has units left. If so, move them to the target
         # territory and set the attacker as the new owner of the target.
-        if remainder := self.origin.take_unit(Troop, self._num_troops - self._num_troops_moved,
-                                              self._allow_insufficient_troops):
+        if total_troops_to_attack > 0:
             # If the attacker has Troops remaining, move them to the target territory.
             self.destination.set_owner(self.origin.owner)
-
-            if isinstance(remainder, Troop):
-                remainder.move(self.destination)
-                self._num_troops_moved += 1
-            else:
-                for troop in remainder:
-                    troop.move(self.destination)
-                    self._num_troops_moved += 1
+            for _ in range(total_troops_to_attack):
+                Troop(territory=self.destination)
         elif self.destination.is_empty():
             # The destination has been rendered empty with this invasion. This will
             # turn the destination neutral.
@@ -492,56 +506,55 @@ class Movement(Instruction):
         belongs to a different player, and hence they can be treated as individual armies. Note that two
         Instructions with the same destination can belong to the same player and they will be treated as
         two separate armies; however, those two armies do not skirmish."""
-        logger.debug(f'{self} has skirmishes with:')
-        logger.indents += 1
-        for skirmish in skirmishes:
-            logger.debug(f'- {skirmish}')
-        logger.indents -= 1
-        issuers = {instruction.issuer for instruction in skirmishes}
-        issuers.add(self.issuer)
-
-        # First, we will check which party has the least amount of troops in this skirmish.
-        # We can then subtract troops from all skirmishes up until this point, after which
-        # that party (or parties) has run out of troops. The skirmish may continue with fewer
-        # parties involved, but that can be its own separate resolve.
-        min_troops_to_move_among_skirmishes = min(
-            list(map(lambda instruction: instruction._num_troops - instruction._num_troops_moved, skirmishes)) +
-            [self._num_troops - self._num_troops_moved]
-        )
-        logger.debug(f'Removing {min_troops_to_move_among_skirmishes} troops from all skirmishing territories')
-
-        for i in range(min_troops_to_move_among_skirmishes):
-            # Subtract a troop.
-            self.origin.take_unit(Troop).remove()
-            self._num_troops_moved += 1
-
-            # Subtract a troop from all involved parties.
+        while skirmishes:
+            logger.debug(f'{self} has skirmishes with:')
+            logger.indents += 1
             for skirmish in skirmishes:
-                skirmish.origin.take_unit(Troop).remove()
-                skirmish._num_troops_moved += 1
+                logger.debug(f'- {skirmish}')
+            logger.indents -= 1
+            issuers = {instruction.issuer for instruction in skirmishes}
+            issuers.add(self.issuer)
 
-        # At least one skirmish has now been completed. Mark those instructions as executed.
-        for skirmish in skirmishes:
-            if skirmish._num_troops_moved == skirmish._num_troops:
-                skirmish.is_executed = True
+            # First, we will check which party has the least amount of troops in this skirmish.
+            # We can then subtract troops from all skirmishes up until this point, after which
+            # that party (or parties) has run out of troops. The skirmish may continue with fewer
+            # parties involved, but that can be its own separate resolve.
+            min_troops_to_move_among_skirmishes = min(
+                list(map(lambda instruction: instruction._num_troops - instruction._num_troops_moved, skirmishes)) +
+                [self._num_troops - self._num_troops_moved]
+            )
+            logger.debug(f'Removing {min_troops_to_move_among_skirmishes} troops from all skirmishing territories')
 
-        if self._num_troops_moved == self._num_troops:
-            # This instruction is finished. There may be remaining skirmishes, but they will
-            # be resolved when their contents are being evaluated in their own turn, so there
-            # is no need for a recursive call.
-            return
+            for i in range(min_troops_to_move_among_skirmishes):
+                # Subtract a troop.
+                self.origin.take_unit(Troop).remove()
+                self._num_troops_moved += 1
 
-        # We may continue fighting! We have defeated at least one opponent, but there may be some left.
-        # We can resolve the remaining skirmishes through a recursive call.
-        if remaining_skirmishes := [skirmish for skirmish in skirmishes if not skirmish.is_executed]:
-            logger.debug('There are remaining skirmishes which we will now resolve')
-            self.resolve_skirmish(remaining_skirmishes)
+                # Subtract a troop from all involved parties.
+                for skirmish in skirmishes:
+                    skirmish.origin.take_unit(Troop).remove()
+                    skirmish._num_troops_moved += 1
+
+            # At least one skirmish has now been completed. Mark those instructions as executed.
+            for skirmish in skirmishes:
+                if skirmish._num_troops_moved == skirmish._num_troops:
+                    skirmish.is_executed = True
+
+            if self._num_troops_moved == self._num_troops:
+                # This instruction is finished. There may be remaining skirmishes, but they will
+                # be resolved when their contents are being evaluated in their own turn, so there
+                # is no need to continue the loop or process this Instruction any further.
+                return
+
+            # We may continue fighting! We have defeated at least one opponent, but there may be some left.
+            # We can resolve the remaining skirmishes through the loop.
+            skirmishes = [skirmish for skirmish in skirmishes if not skirmish.is_executed]
 
         # If we reach here, we have defeated all opponent skirmishes.
         # If the origin has troops remaining, the remainder of the units
         # move onwards to the target territory.
-        if self.origin.take_unit(Troop, self._num_troops - self._num_troops_moved):
-            logger.debug('Skirmish has been resolved; issuer has troops remaining')
+        if self.origin.take_unit(Troop, self._num_troops - self._num_troops_moved, True):
+            logger.debug(f'Skirmish has been resolved; issuer has at least {self._num_troops - self._num_troops_moved} troops remaining')
             if self.destination.is_neutral():
                 logger.debug('Destination was rendered neutral by the skirmish')
                 self.resolve_expansion()
@@ -615,6 +628,13 @@ class Movement(Instruction):
                 We will have to resolve those skirmishes first."""
                 logger.debug(f'Found {len(self.skirmishing_movements)} skirmish' + (
                     'es' if len(self.skirmishing_movements) > 1 else ''))
+
+                # All skirmishes involved will be marked to allow insufficient Troops, so that
+                # the skirmish that continues as an invasion/expansion can proceed normally.
+                self.allow_insufficient_troops()
+                for skirmish in self.skirmishing_movements:
+                    skirmish.allow_insufficient_troops()
+
                 self.resolve_skirmish(self.skirmishing_movements)
             case InstructionType.INVASION:
                 """We are dealing with an invasion here: the target territory already belongs
@@ -655,6 +675,7 @@ class InstructionSet:
     to see which other Instructions are relevant for its own execution."""
 
     instructions: list[Instruction] = field(default_factory=lambda: list())
+    phase: Optional[Phase] = None
 
     @property
     def movements(self) -> list[Movement]:

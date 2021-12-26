@@ -107,8 +107,8 @@ class Territory:
 
         return available[:amount] if amount > 1 else available[0]
 
-    def remove_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> None:
-        """Remove one or more units of the given type."""
+    def remove_unit(self, cls: type[Unit], amount: int = 1, allow_insufficient_amount: bool = False) -> int:
+        """Remove one or more units of the given type. Return the amount successfully removed."""
         available = self.all(cls)
         if amount > len(available):
             if not allow_insufficient_amount:
@@ -118,6 +118,8 @@ class Territory:
 
         for unit in available[:amount]:
             self.units.remove(unit)
+
+        return amount
 
     def move_all(self, cls: type[Unit], destination: Territory) -> None:
         """Convenience method. Move all units of the
