@@ -88,7 +88,7 @@ class Turn:
                 #   input for this.
                 if distributions := [
                     i for i in instructions
-                    if isinstance(i, Movement) and (i.origin.owner is None or i.destination.owner is None or i.issuer == i.origin.owner == i.destination.owner)
+                    if isinstance(i, Movement) and (i.destination.owner is None or i.issuer == i.origin.owner == i.destination.owner)
                 ]:
                     self.instruction_sets[Phase.MOVEMENT].append(InstructionSet(instructions=distributions))
             case phase.BATTLE:
@@ -99,7 +99,7 @@ class Turn:
             case _:
                 raise UnknownPhase(phase)
 
-    def register_battle_phase(self, instructions: set[Instruction]) -> None:
+    def register_battle_phase(self, instructions: set[Movement]) -> None:
         while True:
             # Filter out instructions that have already been assigned to an InstructionSet.
             if not (instructions := [i for i in instructions if not i.instruction_set]):
@@ -114,6 +114,33 @@ class Turn:
                     # must depend on the outcomes of previous Instructions. Mark the Instruction as such, so that
                     # the Instruction is allowed to be executed partially in case not all conditions are fulfilled.
                     instruction.allow_insufficient_troops()
+
+                if [i for i in instructions if i.issuer == instruction.issuer and i.destination == instruction.origin]:
+                    # This is a Movement of the form B -> C while there is also a Movement of the form A -> B
+                    # for the same player. This other Movement should be processed in an earlier InstructionSet,
+                    # so skip this Movement for now.
+                    continue
+
+                if (other_movements_to_same_destination := [
+                    i for i in instructions if
+                    i.issuer == instruction.issuer and i.destination == instruction.destination
+                ]):
+                    # This is a Movement of the form A -> C while there is also a Movement of the form B -> C
+                    # for the same player. We want both Movements in the same InstructionSet, due to battle rules
+                    # assuming a single merged army. Check whether all these Movements can be put in this InstructionSet,
+                    # i.e. do not depend on previous movements.
+                    should_delay = False
+                    for movement in other_movements_to_same_destination:
+                        for i in instructions:
+                            if i.issuer == movement.issuer and i.destination == movement.origin:
+                                should_delay = True
+                                break
+
+                    if should_delay:
+                        # At least one of these other movements to the same destination should be delayed due to
+                        # depending movements. This means we should delay the current movement as well, until all
+                        # prerequisite movements are fulfilled.
+                        continue
 
                 if not [i for i in instructions if
                         i.issuer == instruction.issuer and i.destination == instruction.origin]:
