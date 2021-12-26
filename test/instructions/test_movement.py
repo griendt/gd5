@@ -200,7 +200,6 @@ class MovementTest(TestCase):
         self.assertTrue(i3.is_executed)
 
     def test_simple_invasion_from_multiple_origins(self):
-        self.skipTest('Need to properly define the spec of multi-origin invasions')
         p1, p2 = self.generate_players()
         t1, t2, t3 = self.generate_territories(owners=[p1, p1, p2])
         self.generate_troops({t1: 3, t2: 4, t3: 20})
@@ -211,7 +210,12 @@ class MovementTest(TestCase):
 
         i1.execute()
 
-        raise NotImplementedError
+        # Both movements have been executed
+        self.assertTerritoryHasTroops(t1, 1)
+        self.assertTerritoryHasTroops(t2, 1)
+
+        # Invasion penalty applied only once
+        self.assertTerritoryHasTroops(t3, 20-(5-2))
 
     def test_order_of_chain_of_invasions(self):
         p1, p2, p3 = self.generate_players(3)
