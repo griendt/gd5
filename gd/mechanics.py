@@ -317,16 +317,29 @@ class Movement(Instruction):
     destination: Territory
     skirmishing_movements: list[Movement] = None
     mutual_invasion: Movement = None
+    world: World = None
 
     _allow_insufficient_troops: bool = False
     _is_part_of_loop: bool = False
     _num_troops: int = 0
     _num_troops_moved: int = 0
 
-    def __init__(self, issuer: Player, origin: Territory, destination: Territory, num_troops: int = 0, instruction_set: InstructionSet = None):
+    def __init__(self, issuer: Player, origin: Territory | int, destination: Territory | int, num_troops: int = 0, instruction_set: InstructionSet = None, world: World = None):
         super().__init__(issuer=issuer, instruction_set=instruction_set)
+        if world:
+            self.world = world
+
         self.origin = origin
         self.destination = destination
+
+        # When provided with a World instance, we can resolve integers as arguments by looking in the
+        # World object to fetch the Territories that belong to it. This gives a convenient way to pass
+        # in integer arguments to denominate Territories.
+        if self.world and isinstance(origin, int):
+            self.origin = self.world.territories[origin]
+        if self.world and isinstance(destination, int):
+            self.destination = self.world.territories[destination]
+
         self._num_troops = num_troops
         self._num_troops_moved = 0
 

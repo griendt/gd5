@@ -296,6 +296,18 @@ class MovementTest(TestCase):
         self.assertTerritoryOwner(t2, p1)
         self.assertTrue(movement.is_executed)
 
+    def test_movement_can_take_integers_instead_of_territories_if_world_is_set(self):
+        p1, = self.generate_players(1)
+        t1, t2 = self.generate_territories(owners=[p1])
+        self.generate_troops({t1: 1})
+
+        order = Movement(issuer=p1, origin=t1.id, destination=t2.id, num_troops=1, world=self.world)
+        order.assert_is_valid()
+
+        # Origin and destination are resolved to their respective Territories.
+        self.assertEqual(order.origin, t1)
+        self.assertEqual(order.destination, t2)
+
 
 if __name__ == "__main__":
     unittest.main()
