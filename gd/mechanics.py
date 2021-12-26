@@ -73,9 +73,12 @@ class Turn:
                 if generations := [i for i in instructions if isinstance(i, SpawnTroops)]:
                     self.instruction_sets[Phase.GENERATION].append(InstructionSet(instructions=generations))
             case phase.MOVEMENT:
+                # TODO: Figure out order of movements. For example, there may be distributions A->B and B->C;
+                #   those should be figured out in the correct order. We should not depend on the order of the
+                #   input for this.
                 if distributions := [
                     i for i in instructions
-                    if isinstance(i, Movement) and (i.origin.owner is None or i.issuer == i.origin.owner == i.destination.owner)
+                    if isinstance(i, Movement) and (i.origin.owner is None or i.destination.owner is None or i.issuer == i.origin.owner == i.destination.owner)
                 ]:
                     self.instruction_sets[Phase.MOVEMENT].append(InstructionSet(instructions=distributions))
             case phase.BATTLE:
