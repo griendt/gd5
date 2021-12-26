@@ -270,22 +270,20 @@ class MovementTest(TestCase):
 
     def test_a_turn_sorts_instructions_into_instruction_sets(self):
         p1, p2 = self.generate_players()
-        t1, t2, t3, t4 = self.generate_territories(amount=4, owners=[p1, p2, p2])
+        t1, t2, t3, t4 = self.generate_territories(amount=4, owners=[p1, p2, p2, p2])
 
         invasion = Movement(issuer=p1, origin=t1, destination=t2, num_troops=4)
-        conditional_invasion = Movement(issuer=p1, origin=t2, destination=t4, num_troops=4)
+        second_invasion = Movement(issuer=p1, origin=t2, destination=t4, num_troops=4)
         distribution = Movement(issuer=p2, origin=t2, destination=t3, num_troops=1)
-        expansion = Movement(issuer=p2, origin=t2, destination=t4, num_troops=2)
+        distribution_2 = Movement(issuer=p2, origin=t2, destination=t4, num_troops=2)
 
-        # Note that the conditional move is to be considered a battle, even though it is an _expansion_ at the time
-        # of issue, as t4 has no owner at that point in time.
-        turn = Turn([invasion, conditional_invasion, distribution, expansion])
+        turn = Turn([invasion, second_invasion, distribution, distribution_2])
 
         self.assertEqual(1, len(turn.instruction_sets[Phase.MOVEMENT]))
         self.assertEqual(2, len(turn.instruction_sets[Phase.BATTLE]))
-        self.assertEqual({distribution}, set(turn.instruction_sets[Phase.MOVEMENT][0].instructions))
-        self.assertEqual({invasion, expansion}, set(turn.instruction_sets[Phase.BATTLE][0].instructions))
-        self.assertEqual({conditional_invasion}, set(turn.instruction_sets[Phase.BATTLE][1].instructions))
+        self.assertEqual({distribution, distribution_2}, set(turn.instruction_sets[Phase.MOVEMENT][0].instructions))
+        self.assertEqual({invasion}, set(turn.instruction_sets[Phase.BATTLE][0].instructions))
+        self.assertEqual({second_invasion}, set(turn.instruction_sets[Phase.BATTLE][1].instructions))
 
     def test_a_turn_can_be_processed(self):
         p1, = self.generate_players(1)
@@ -297,29 +295,6 @@ class MovementTest(TestCase):
 
         self.assertTerritoryOwner(t2, p1)
         self.assertTrue(movement.is_executed)
-
-    def test_a_turn_processes_moves_in_the_right_order(self):
-        p1, p2 = self.generate_players()
-        t1, t2, t3, t4 = self.generate_territories(amount=4, owners=[p1, p2, p2])
-        self.generate_troops({t1: 10, t2: 4, t3: 10})
-
-        Turn([
-            Movement(issuer=p1, origin=t1, destination=t2, num_troops=4),
-            Movement(issuer=p1, origin=t2, destination=t4, num_troops=4),
-            Movement(issuer=p2, origin=t2, destination=t3, num_troops=1),
-            Movement(issuer=p2, origin=t2, destination=t4, num_troops=2)]
-        ).execute()
-
-        self.assertTerritoryOwner(t1, p1)
-        # 10 minus 4 from invasion
-        self.assertTerritoryHasTroops(t1, 6)
-        # 4 minutes 2 and 1 from distributions, then overtaken with 1 troop left, then final troop dies in follow-up invasion
-        self.assertTerritoryHasTroops(t2, 0)
-        self.assertTerritoryOwner(t2, p1)
-        self.assertTerritoryHasTroops(t3, 11)  # 10 plus 1 from distribution
-        self.assertTerritoryOwner(t3, p2)
-        self.assertTerritoryHasTroops(t4, 2)  # 0 plus 2 from expansion
-        self.assertTerritoryOwner(t4, p2)
 
 
 if __name__ == "__main__":
